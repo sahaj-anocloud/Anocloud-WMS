@@ -7,7 +7,7 @@ import { AppointmentService } from './appointment.service.js';
 
 function makeDb(): Pool {
   return {
-    query: vi.fn(),
+    query: vi.fn() as any,
   } as unknown as Pool;
 }
 
@@ -29,17 +29,17 @@ describe('AppointmentService', () => {
       const sqs = makeSqsClient();
 
       // Mock ASN lookup
-      vi.mocked(dbRead.query).mockResolvedValueOnce({
+      (dbRead.query as any).mockResolvedValueOnce({
         rows: [{ asn_id: 'asn-123', status: 'Active' }],
-      } as QueryResult);
+      } as any as QueryResult);
 
       // Mock dock slot availability check
-      vi.mocked(dbRead.query).mockResolvedValueOnce({
+      (dbRead.query as any).mockResolvedValueOnce({
         rows: [{ count: '0' }],
-      } as QueryResult);
+      } as any as QueryResult);
 
       // Mock appointment insert
-      vi.mocked(db.query).mockResolvedValueOnce({
+      (db.query as any).mockResolvedValueOnce({
         rows: [
           {
             appointment_id: 'appt-123',
@@ -53,12 +53,12 @@ describe('AppointmentService', () => {
             is_heavy_truck: true,
           },
         ],
-      } as QueryResult);
+      } as any as QueryResult);
 
       // Mock audit event write
-      vi.mocked(db.query).mockResolvedValueOnce({
+      (db.query as any).mockResolvedValueOnce({
         rows: [],
-      } as QueryResult);
+      } as any as QueryResult);
 
       const svc = new AppointmentService(db, dbRead, sqs, QUEUE_URL);
 
@@ -82,9 +82,9 @@ describe('AppointmentService', () => {
       const sqs = makeSqsClient();
 
       // Mock ASN lookup
-      vi.mocked(dbRead.query).mockResolvedValueOnce({
+      (dbRead.query as any).mockResolvedValueOnce({
         rows: [{ asn_id: 'asn-123', status: 'Active' }],
-      } as QueryResult);
+      } as any as QueryResult);
 
       const svc = new AppointmentService(db, dbRead, sqs, QUEUE_URL);
 
@@ -107,9 +107,9 @@ describe('AppointmentService', () => {
       const sqs = makeSqsClient();
 
       // Mock ASN lookup
-      vi.mocked(dbRead.query).mockResolvedValueOnce({
+      (dbRead.query as any).mockResolvedValueOnce({
         rows: [{ asn_id: 'asn-123', status: 'Active' }],
-      } as QueryResult);
+      } as any as QueryResult);
 
       const svc = new AppointmentService(db, dbRead, sqs, QUEUE_URL);
 
@@ -132,17 +132,17 @@ describe('AppointmentService', () => {
       const sqs = makeSqsClient();
 
       // Mock ASN lookup
-      vi.mocked(dbRead.query).mockResolvedValueOnce({
+      (dbRead.query as any).mockResolvedValueOnce({
         rows: [{ asn_id: 'asn-123', status: 'Active' }],
-      } as QueryResult);
+      } as any as QueryResult);
 
       // Mock dock slot availability check
-      vi.mocked(dbRead.query).mockResolvedValueOnce({
+      (dbRead.query as any).mockResolvedValueOnce({
         rows: [{ count: '0' }],
-      } as QueryResult);
+      } as any as QueryResult);
 
       // Mock appointment insert
-      vi.mocked(db.query).mockResolvedValueOnce({
+      (db.query as any).mockResolvedValueOnce({
         rows: [
           {
             appointment_id: 'appt-123',
@@ -156,12 +156,12 @@ describe('AppointmentService', () => {
             is_heavy_truck: false,
           },
         ],
-      } as QueryResult);
+      } as any as QueryResult);
 
       // Mock audit event write
-      vi.mocked(db.query).mockResolvedValueOnce({
+      (db.query as any).mockResolvedValueOnce({
         rows: [],
-      } as QueryResult);
+      } as any as QueryResult);
 
       const svc = new AppointmentService(db, dbRead, sqs, QUEUE_URL);
 
@@ -184,14 +184,14 @@ describe('AppointmentService', () => {
       const sqs = makeSqsClient();
 
       // Mock ASN lookup
-      vi.mocked(dbRead.query).mockResolvedValueOnce({
+      (dbRead.query as any).mockResolvedValueOnce({
         rows: [{ asn_id: 'asn-123', status: 'Active' }],
-      } as QueryResult);
+      } as any as QueryResult);
 
       // Mock dock slot availability check - slot is occupied
-      vi.mocked(dbRead.query).mockResolvedValueOnce({
+      (dbRead.query as any).mockResolvedValueOnce({
         rows: [{ count: '1' }],
-      } as QueryResult);
+      } as any as QueryResult);
 
       const svc = new AppointmentService(db, dbRead, sqs, QUEUE_URL);
 
@@ -214,9 +214,9 @@ describe('AppointmentService', () => {
       const sqs = makeSqsClient();
 
       // Mock ASN lookup - not found
-      vi.mocked(dbRead.query).mockResolvedValueOnce({
+      (dbRead.query as any).mockResolvedValueOnce({
         rows: [],
-      } as QueryResult);
+      } as any as QueryResult);
 
       const svc = new AppointmentService(db, dbRead, sqs, QUEUE_URL);
 
@@ -239,9 +239,9 @@ describe('AppointmentService', () => {
       const sqs = makeSqsClient();
 
       // Mock ASN lookup - cancelled status
-      vi.mocked(dbRead.query).mockResolvedValueOnce({
+      (dbRead.query as any).mockResolvedValueOnce({
         rows: [{ asn_id: 'asn-123', status: 'Cancelled' }],
-      } as QueryResult);
+      } as any as QueryResult);
 
       const svc = new AppointmentService(db, dbRead, sqs, QUEUE_URL);
 
@@ -266,7 +266,7 @@ describe('AppointmentService', () => {
       const sqs = makeSqsClient();
 
       // Mock appointment lookup
-      vi.mocked(dbRead.query).mockResolvedValueOnce({
+      (dbRead.query as any).mockResolvedValueOnce({
         rows: [
           {
             appointment_id: 'appt-123',
@@ -280,10 +280,10 @@ describe('AppointmentService', () => {
             is_heavy_truck: true,
           },
         ],
-      } as QueryResult);
+      } as any as QueryResult);
 
       // Mock appointment update
-      vi.mocked(db.query).mockResolvedValueOnce({
+      (db.query as any).mockResolvedValueOnce({
         rows: [
           {
             appointment_id: 'appt-123',
@@ -297,12 +297,12 @@ describe('AppointmentService', () => {
             is_heavy_truck: true,
           },
         ],
-      } as QueryResult);
+      } as any as QueryResult);
 
       // Mock audit event write
-      vi.mocked(db.query).mockResolvedValueOnce({
+      (db.query as any).mockResolvedValueOnce({
         rows: [],
-      } as QueryResult);
+      } as any as QueryResult);
 
       const svc = new AppointmentService(db, dbRead, sqs, QUEUE_URL);
 
@@ -329,9 +329,9 @@ describe('AppointmentService', () => {
       const sqs = makeSqsClient();
 
       // Mock appointment lookup - not found
-      vi.mocked(dbRead.query).mockResolvedValueOnce({
+      (dbRead.query as any).mockResolvedValueOnce({
         rows: [],
-      } as QueryResult);
+      } as any as QueryResult);
 
       const svc = new AppointmentService(db, dbRead, sqs, QUEUE_URL);
 
@@ -354,7 +354,7 @@ describe('AppointmentService', () => {
       const gateInTime = new Date(now.getTime() - 45 * 60 * 1000); // 45 minutes ago
 
       // Mock schedule board query
-      vi.mocked(dbRead.query).mockResolvedValueOnce({
+      (dbRead.query as any).mockResolvedValueOnce({
         rows: [
           {
             appointment_id: 'appt-123',
@@ -377,7 +377,7 @@ describe('AppointmentService', () => {
             gate_in_timestamp: null,
           },
         ],
-      } as QueryResult);
+      } as any as QueryResult);
 
       const svc = new AppointmentService(db, dbRead, sqs, QUEUE_URL);
 
@@ -398,7 +398,7 @@ describe('AppointmentService', () => {
       const sqs = makeSqsClient();
 
       // Mock appointment lookup
-      vi.mocked(dbRead.query).mockResolvedValueOnce({
+      (dbRead.query as any).mockResolvedValueOnce({
         rows: [
           {
             appointment_id: 'appt-123',
@@ -412,12 +412,12 @@ describe('AppointmentService', () => {
             is_heavy_truck: true,
           },
         ],
-      } as QueryResult);
+      } as any as QueryResult);
 
       // Mock audit event write
-      vi.mocked(db.query).mockResolvedValueOnce({
+      (db.query as any).mockResolvedValueOnce({
         rows: [],
-      } as QueryResult);
+      } as any as QueryResult);
 
       const svc = new AppointmentService(db, dbRead, sqs, QUEUE_URL);
 
@@ -447,7 +447,7 @@ describe('AppointmentService', () => {
       const sqs = makeSqsClient();
 
       // Mock appointment lookup
-      vi.mocked(dbRead.query).mockResolvedValueOnce({
+      (dbRead.query as any).mockResolvedValueOnce({
         rows: [
           {
             appointment_id: 'appt-123',
@@ -461,7 +461,7 @@ describe('AppointmentService', () => {
             is_heavy_truck: true,
           },
         ],
-      } as QueryResult);
+      } as any as QueryResult);
 
       const svc = new AppointmentService(db, dbRead, sqs, QUEUE_URL);
 

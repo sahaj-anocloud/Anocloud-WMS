@@ -6,7 +6,7 @@ import type { Pool, QueryResult } from 'pg';
 
 function makePool(rows: Record<string, unknown>[] = []): Pool {
   return {
-    query: vi.fn().mockResolvedValue({ rows, rowCount: rows.length } as QueryResult),
+    query: vi.fn().mockResolvedValue({ rows, rowCount: rows.length } as any as QueryResult),
   } as unknown as Pool;
 }
 
@@ -44,11 +44,11 @@ describe('BarcodeService.registerBarcode', () => {
   it('succeeds when barcode is new', async () => {
     // dbRead returns no existing barcode; db inserts and returns the new row
     const dbRead = {
-      query: vi.fn().mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult),
+      query: vi.fn().mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult),
     } as unknown as Pool;
 
     const db = {
-      query: vi.fn().mockResolvedValueOnce({ rows: [BARCODE_ROW], rowCount: 1 } as QueryResult),
+      query: vi.fn().mockResolvedValueOnce({ rows: [BARCODE_ROW], rowCount: 1 } as any as QueryResult),
     } as unknown as Pool;
 
     const svc = new BarcodeService(db, dbRead);
@@ -60,7 +60,7 @@ describe('BarcodeService.registerBarcode', () => {
     expect(result.is_primary).toBe(true);
 
     // Verify INSERT was called
-    const insertCall = (db.query as ReturnType<typeof vi.fn>).mock.calls[0];
+    const insertCall = (db.query as ReturnType<typeof vi.fn>).mock.calls[0]!;
     expect(insertCall[0]).toContain('INSERT INTO barcodes');
     expect(insertCall[1]).toEqual([BARCODE, SKU_ID_A, 'EAN13', true]);
   });
@@ -68,7 +68,7 @@ describe('BarcodeService.registerBarcode', () => {
   it('succeeds (idempotent) when same barcode is registered to the same SKU', async () => {
     // dbRead returns existing row with same sku_id
     const dbRead = {
-      query: vi.fn().mockResolvedValueOnce({ rows: [BARCODE_ROW], rowCount: 1 } as QueryResult),
+      query: vi.fn().mockResolvedValueOnce({ rows: [BARCODE_ROW], rowCount: 1 } as any as QueryResult),
     } as unknown as Pool;
 
     const db = {
@@ -89,8 +89,8 @@ describe('BarcodeService.registerBarcode', () => {
     const dbRead = {
       query: vi
         .fn()
-        .mockResolvedValueOnce({ rows: [BARCODE_ROW], rowCount: 1 } as QueryResult) // existing barcode
-        .mockResolvedValueOnce({ rows: [SKU_DETAILS_A], rowCount: 1 } as QueryResult), // conflicting SKU details
+        .mockResolvedValueOnce({ rows: [BARCODE_ROW], rowCount: 1 } as any as QueryResult) // existing barcode
+        .mockResolvedValueOnce({ rows: [SKU_DETAILS_A], rowCount: 1 } as any as QueryResult), // conflicting SKU details
     } as unknown as Pool;
 
     const db = { query: vi.fn() } as unknown as Pool;
@@ -122,7 +122,7 @@ describe('BarcodeService.lookupBarcode', () => {
     };
 
     const dbRead = {
-      query: vi.fn().mockResolvedValueOnce({ rows: [lookupRow], rowCount: 1 } as QueryResult),
+      query: vi.fn().mockResolvedValueOnce({ rows: [lookupRow], rowCount: 1 } as any as QueryResult),
     } as unknown as Pool;
 
     const svc = new BarcodeService(makePool(), dbRead);
@@ -137,7 +137,7 @@ describe('BarcodeService.lookupBarcode', () => {
 
   it('throws BARCODE_NOT_FOUND for an unknown barcode', async () => {
     const dbRead = {
-      query: vi.fn().mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult),
+      query: vi.fn().mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult),
     } as unknown as Pool;
 
     const svc = new BarcodeService(makePool(), dbRead);

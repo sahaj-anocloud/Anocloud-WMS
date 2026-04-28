@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { GSTService } from './gst.service';
 
 export async function gstRoutes(fastify: FastifyInstance) {
-  const gstService = new GSTService(fastify.pg);
+  const gstService = new GSTService(fastify.db, fastify.sqsClient);
 
   /**
    * POST /api/v1/gst/check
@@ -84,6 +84,7 @@ export async function gstRoutes(fastify: FastifyInstance) {
         await gstService.resolveGSTMismatch({
           checkId,
           resolverId: user.user_id,
+          resolverRole: user.roles?.[0] || 'unknown',
           deviceId: request.headers['x-device-id'] as string || 'unknown',
           resolutionCode
         });

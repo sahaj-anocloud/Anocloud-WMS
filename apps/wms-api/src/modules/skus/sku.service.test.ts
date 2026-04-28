@@ -6,7 +6,7 @@ import type { Pool, QueryResult } from 'pg';
 
 function makePool(rows: Record<string, unknown>[] = []): Pool {
   return {
-    query: vi.fn().mockResolvedValue({ rows, rowCount: rows.length } as QueryResult),
+    query: vi.fn().mockResolvedValue({ rows, rowCount: rows.length } as any as QueryResult),
   } as unknown as Pool;
 }
 
@@ -143,8 +143,8 @@ describe('SKUService.createSKU', () => {
     const db = {
       query: vi
         .fn()
-        .mockResolvedValueOnce({ rows: [skuRow], rowCount: 1 } as QueryResult) // INSERT skus
-        .mockResolvedValueOnce({ rows: [], rowCount: 1 } as QueryResult), // INSERT barcodes
+        .mockResolvedValueOnce({ rows: [skuRow], rowCount: 1 } as any as QueryResult) // INSERT skus
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any as QueryResult), // INSERT barcodes
     } as unknown as Pool;
 
     const svc = new SKUService(db, db);
@@ -153,7 +153,7 @@ describe('SKUService.createSKU', () => {
     expect(result.status).toBe('Active');
 
     // Verify the INSERT was called with 'Active' status
-    const insertCall = (db.query as ReturnType<typeof vi.fn>).mock.calls[0];
+    const insertCall = (db.query as ReturnType<typeof vi.fn>).mock.calls[0]!;
     expect(insertCall[1]).toContain('Active');
   });
 
@@ -179,8 +179,8 @@ describe('SKUService.createSKU', () => {
     const db = {
       query: vi
         .fn()
-        .mockResolvedValueOnce({ rows: [skuRow], rowCount: 1 } as QueryResult)
-        .mockResolvedValueOnce({ rows: [], rowCount: 1 } as QueryResult),
+        .mockResolvedValueOnce({ rows: [skuRow], rowCount: 1 } as any as QueryResult)
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any as QueryResult),
     } as unknown as Pool;
 
     const svc = new SKUService(db, db);
@@ -189,7 +189,7 @@ describe('SKUService.createSKU', () => {
     expect(result.status).toBe('Incomplete');
 
     // Verify the INSERT was called with 'Incomplete' status
-    const insertCall = (db.query as ReturnType<typeof vi.fn>).mock.calls[0];
+    const insertCall = (db.query as ReturnType<typeof vi.fn>).mock.calls[0]!;
     expect(insertCall[1]).toContain('Incomplete');
   });
 
@@ -230,8 +230,8 @@ describe('SKUService.createSKU', () => {
     const db = {
       query: vi
         .fn()
-        .mockResolvedValueOnce({ rows: [skuRow], rowCount: 1 } as QueryResult)
-        .mockResolvedValueOnce({ rows: [], rowCount: 1 } as QueryResult),
+        .mockResolvedValueOnce({ rows: [skuRow], rowCount: 1 } as any as QueryResult)
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any as QueryResult),
     } as unknown as Pool;
 
     const svc = new SKUService(db, db);
@@ -268,14 +268,14 @@ describe('SKUService.updateSKU', () => {
     const dbRead = {
       query: vi
         .fn()
-        .mockResolvedValueOnce({ rows: [previousSKU], rowCount: 1 } as QueryResult),
+        .mockResolvedValueOnce({ rows: [previousSKU], rowCount: 1 } as any as QueryResult),
     } as unknown as Pool;
 
     const db = {
       query: vi
         .fn()
-        .mockResolvedValueOnce({ rows: [updatedSKU], rowCount: 1 } as QueryResult) // UPDATE
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult), // audit INSERT
+        .mockResolvedValueOnce({ rows: [updatedSKU], rowCount: 1 } as any as QueryResult) // UPDATE
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult), // audit INSERT
     } as unknown as Pool;
 
     const svc = new SKUService(db, dbRead);
@@ -290,7 +290,7 @@ describe('SKUService.updateSKU', () => {
     expect(result.name).toBe('New Name');
 
     // Verify audit event was written
-    const auditCall = (db.query as ReturnType<typeof vi.fn>).mock.calls[1];
+    const auditCall = (db.query as ReturnType<typeof vi.fn>).mock.calls[1]!;
     expect(auditCall[0]).toContain('INSERT INTO audit_events');
     // Check previous_state and new_state are in the audit payload
     const auditParams = auditCall[1] as unknown[];
@@ -307,7 +307,7 @@ describe('SKUService.updateSKU', () => {
 
   it('throws SKU_NOT_FOUND when SKU does not exist', async () => {
     const dbRead = {
-      query: vi.fn().mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult),
+      query: vi.fn().mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult),
     } as unknown as Pool;
 
     const svc = new SKUService(makePool(), dbRead);
@@ -356,10 +356,10 @@ describe('SKUService.bulkImportSKUs', () => {
     const db = {
       query: vi
         .fn()
-        .mockResolvedValueOnce({ rows: [skuRow1], rowCount: 1 } as QueryResult) // INSERT sku1
-        .mockResolvedValueOnce({ rows: [], rowCount: 1 } as QueryResult)         // INSERT barcode1
-        .mockResolvedValueOnce({ rows: [skuRow2], rowCount: 1 } as QueryResult) // INSERT sku2
-        .mockResolvedValueOnce({ rows: [], rowCount: 1 } as QueryResult),        // INSERT barcode2
+        .mockResolvedValueOnce({ rows: [skuRow1], rowCount: 1 } as any as QueryResult) // INSERT sku1
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any as QueryResult)         // INSERT barcode1
+        .mockResolvedValueOnce({ rows: [skuRow2], rowCount: 1 } as any as QueryResult) // INSERT sku2
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any as QueryResult),        // INSERT barcode2
     } as unknown as Pool;
 
     const svc = new SKUService(db, db);
@@ -378,7 +378,7 @@ describe('SKUService.assertSKUReceivable', () => {
       query: vi.fn().mockResolvedValueOnce({
         rows: [{ status: 'Incomplete' }],
         rowCount: 1,
-      } as QueryResult),
+      } as any as QueryResult),
     } as unknown as Pool;
 
     const svc = new SKUService(makePool(), dbRead);
@@ -392,7 +392,7 @@ describe('SKUService.assertSKUReceivable', () => {
       query: vi.fn().mockResolvedValueOnce({
         rows: [{ status: 'Active' }],
         rowCount: 1,
-      } as QueryResult),
+      } as any as QueryResult),
     } as unknown as Pool;
 
     const svc = new SKUService(makePool(), dbRead);
@@ -401,7 +401,7 @@ describe('SKUService.assertSKUReceivable', () => {
 
   it('throws SKU_NOT_FOUND when SKU does not exist', async () => {
     const dbRead = {
-      query: vi.fn().mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult),
+      query: vi.fn().mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult),
     } as unknown as Pool;
 
     const svc = new SKUService(makePool(), dbRead);

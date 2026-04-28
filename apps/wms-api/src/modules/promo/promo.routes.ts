@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { PromoService } from './promo.service';
 
 export async function promoRoutes(fastify: FastifyInstance) {
-  const promoService = new PromoService(fastify.pg);
+  const promoService = new PromoService(fastify.db);
 
   /**
    * GET /api/v1/promo/:deliveryLineId/info

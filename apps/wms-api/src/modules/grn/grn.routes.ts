@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { GRNService } from './grn.service';
 
 export async function grnRoutes(fastify: FastifyInstance) {
-  const grnService = new GRNService(fastify.pg);
+  const grnService = new GRNService(fastify.db);
 
   /**
    * POST /api/v1/grn/initiate

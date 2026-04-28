@@ -39,9 +39,9 @@ describe('runExpiryAlerts', () => {
         query: vi
           .fn()
           // First call: expiry warning query
-          .mockResolvedValueOnce({ rows: expiringDocs, rowCount: 2 } as QueryResult)
+          .mockResolvedValueOnce({ rows: expiringDocs, rowCount: 2 } as any as QueryResult)
           // Second call: expired docs query
-          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult),
+          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult),
       } as unknown as Pool;
 
       const sqs = makeSqsClient();
@@ -67,8 +67,8 @@ describe('runExpiryAlerts', () => {
       const db = {
         query: vi
           .fn()
-          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult) // no expiring-soon docs
-          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult), // no expired docs
+          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult) // no expiring-soon docs
+          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult), // no expired docs
       } as unknown as Pool;
 
       const sqs = makeSqsClient();
@@ -90,8 +90,8 @@ describe('runExpiryAlerts', () => {
       const db = {
         query: vi
           .fn()
-          .mockResolvedValueOnce({ rows: [doc], rowCount: 1 } as QueryResult)
-          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult),
+          .mockResolvedValueOnce({ rows: [doc], rowCount: 1 } as any as QueryResult)
+          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult),
       } as unknown as Pool;
 
       const sqs = makeSqsClient();
@@ -123,11 +123,11 @@ describe('runExpiryAlerts', () => {
       const db = {
         query: vi
           .fn()
-          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult) // no expiring-soon
-          .mockResolvedValueOnce({ rows: [expiredDoc], rowCount: 1 } as QueryResult) // expired
-          .mockResolvedValueOnce({ rows: [], rowCount: 1 } as QueryResult) // UPDATE vendors
-          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult) // UPDATE po_lines
-          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult), // UPDATE asns
+          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult) // no expiring-soon
+          .mockResolvedValueOnce({ rows: [expiredDoc], rowCount: 1 } as any as QueryResult) // expired
+          .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any as QueryResult) // UPDATE vendors
+          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult) // UPDATE po_lines
+          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult), // UPDATE asns
       } as unknown as Pool;
 
       const sqs = makeSqsClient();
@@ -168,11 +168,11 @@ describe('runExpiryAlerts', () => {
       const db = {
         query: vi
           .fn()
-          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult)
-          .mockResolvedValueOnce({ rows: [expiredDoc], rowCount: 1 } as QueryResult)
-          .mockResolvedValueOnce({ rows: [], rowCount: 1 } as QueryResult) // suspend vendor
-          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult) // block po_lines
-          .mockResolvedValueOnce({ rows: [], rowCount: 2 } as QueryResult), // cancel asns
+          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult)
+          .mockResolvedValueOnce({ rows: [expiredDoc], rowCount: 1 } as any as QueryResult)
+          .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any as QueryResult) // suspend vendor
+          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult) // block po_lines
+          .mockResolvedValueOnce({ rows: [], rowCount: 2 } as any as QueryResult), // cancel asns
       } as unknown as Pool;
 
       const sqs = makeSqsClient();
@@ -210,12 +210,12 @@ describe('runExpiryAlerts', () => {
       const db = {
         query: vi
           .fn()
-          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult)
-          .mockResolvedValueOnce({ rows: expiredDocs, rowCount: 2 } as QueryResult)
+          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult)
+          .mockResolvedValueOnce({ rows: expiredDocs, rowCount: 2 } as any as QueryResult)
           // One set of 3 update queries for the single unique vendor
-          .mockResolvedValueOnce({ rows: [], rowCount: 1 } as QueryResult)
-          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult)
-          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult),
+          .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any as QueryResult)
+          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult)
+          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult),
       } as unknown as Pool;
 
       const sqs = makeSqsClient();
@@ -234,8 +234,8 @@ describe('runExpiryAlerts', () => {
       const db = {
         query: vi
           .fn()
-          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult)
-          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult),
+          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult)
+          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult),
       } as unknown as Pool;
 
       const sqs = makeSqsClient();
@@ -255,8 +255,8 @@ describe('runExpiryAlerts', () => {
       const db = {
         query: vi
           .fn()
-          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult)
-          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult),
+          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult)
+          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult),
       } as unknown as Pool;
 
       const sqs = makeSqsClient();
@@ -286,11 +286,11 @@ describe('runExpiryAlerts', () => {
       const db = {
         query: vi
           .fn()
-          .mockResolvedValueOnce({ rows: [expiringDoc], rowCount: 1 } as QueryResult)
-          .mockResolvedValueOnce({ rows: [expiredDoc], rowCount: 1 } as QueryResult)
-          .mockResolvedValueOnce({ rows: [], rowCount: 1 } as QueryResult) // suspend
-          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult) // block po_lines
-          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult), // cancel asns
+          .mockResolvedValueOnce({ rows: [expiringDoc], rowCount: 1 } as any as QueryResult)
+          .mockResolvedValueOnce({ rows: [expiredDoc], rowCount: 1 } as any as QueryResult)
+          .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any as QueryResult) // suspend
+          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult) // block po_lines
+          .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult), // cancel asns
       } as unknown as Pool;
 
       const sqs = makeSqsClient();

@@ -52,9 +52,16 @@ export class EncryptionService {
         throw new Error('Invalid encrypted payload format');
       }
       
-      const iv = Buffer.from(parts[0], 'hex');
-      const tag = Buffer.from(parts[1], 'hex');
+      const ivStr = parts[0];
+      const tagStr = parts[1];
       const encryptedText = parts[2];
+
+      if (!ivStr || !tagStr || !encryptedText) {
+        throw new Error('Invalid encrypted payload components');
+      }
+      
+      const iv = Buffer.from(ivStr, 'hex');
+      const tag = Buffer.from(tagStr, 'hex');
       
       const decipher = crypto.createDecipheriv(ALGORITHM, this.key, iv);
       decipher.setAuthTag(tag);

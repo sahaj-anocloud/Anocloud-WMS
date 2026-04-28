@@ -1,8 +1,8 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { GKMService } from './gkm.service';
+import { GKMService } from './gkm.service.js';
 
 export async function gkmRoutes(fastify: FastifyInstance) {
-  const gkmService = new GKMService(fastify.pg);
+  const gkmService = new GKMService(fastify.db);
 
   /**
    * POST /api/v1/gkm/check
@@ -75,6 +75,7 @@ export async function gkmRoutes(fastify: FastifyInstance) {
         await gkmService.approveGKMCheck({
           checkId,
           approverId: user.user_id,
+          approverRole: user.roles?.[0] || 'unknown',
           deviceId: request.headers['x-device-id'] as string || 'unknown'
         });
 
@@ -128,7 +129,7 @@ export async function gkmRoutes(fastify: FastifyInstance) {
           dcId: user.dc_id,
           userId: user.user_id,
           deviceId: request.headers['x-device-id'] as string || 'unknown',
-          userRole: user.role, // Extracted from JWT
+          userRole: user.roles?.[0] || 'unknown', // Extracted from JWT
           reasonCode
         });
 

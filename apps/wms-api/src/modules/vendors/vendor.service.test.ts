@@ -6,7 +6,7 @@ import type { Pool, QueryResult } from 'pg';
 
 function makePool(rows: Record<string, unknown>[] = []): Pool {
   return {
-    query: vi.fn().mockResolvedValue({ rows, rowCount: rows.length } as QueryResult),
+    query: vi.fn().mockResolvedValue({ rows, rowCount: rows.length } as any as QueryResult),
   } as unknown as Pool;
 }
 
@@ -89,8 +89,8 @@ describe('VendorService.approveVendor', () => {
         .mockResolvedValueOnce({
           rows: [{ compliance_status: complianceStatus }],
           rowCount: 1,
-        } as QueryResult)
-        .mockResolvedValueOnce({ rows: docs, rowCount: docs.length } as QueryResult),
+        } as any as QueryResult)
+        .mockResolvedValueOnce({ rows: docs, rowCount: docs.length } as any as QueryResult),
     } as unknown as Pool;
   }
 
@@ -207,8 +207,8 @@ describe('VendorService.approveVendor', () => {
     const db = {
       query: vi
         .fn()
-        .mockResolvedValueOnce({ rows: [activeVendor], rowCount: 1 } as QueryResult)
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult), // audit insert
+        .mockResolvedValueOnce({ rows: [activeVendor], rowCount: 1 } as any as QueryResult)
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult), // audit insert
     } as unknown as Pool;
 
     const svc = new VendorService(db, dbRead);
@@ -232,8 +232,8 @@ describe('VendorService.approveVendor', () => {
     const db = {
       query: vi
         .fn()
-        .mockResolvedValueOnce({ rows: [activeVendor], rowCount: 1 } as QueryResult)
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 } as QueryResult),
+        .mockResolvedValueOnce({ rows: [activeVendor], rowCount: 1 } as any as QueryResult)
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any as QueryResult),
     } as unknown as Pool;
 
     const svc = new VendorService(db, dbRead);

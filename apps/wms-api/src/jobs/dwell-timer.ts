@@ -122,7 +122,8 @@ export class DwellTimerWorker {
 }
 
 // CLI entry point
-if (import.meta.url === `file://${process.argv[1]}`) {
+const isMain = process.argv[1]?.includes('dwell-timer');
+if (isMain) {
   const db = new Pool({ connectionString: process.env['DB_WRITE_URL'] });
   const sqsClient = new SQSClient({});
   const worker = new DwellTimerWorker(db, sqsClient);

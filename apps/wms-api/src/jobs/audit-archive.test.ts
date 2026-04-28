@@ -48,15 +48,15 @@ describe('AuditArchiveJob (Task 12.5)', () => {
 
     // Verify S3 PutObjectCommand was called with DEEP_ARCHIVE
     expect(s3SendMock).toHaveBeenCalledTimes(1);
-    const putObjCall = s3SendMock.mock.calls[0][0] as PutObjectCommand;
-    expect(putObjCall.input?.Bucket).toBe('sumosave-audit-archive-worm');
+    const putObjCall = s3SendMock.mock.calls[0]![0] as PutObjectCommand;
+    expect(putObjCall.input!.Bucket).toBe('sumosave-audit-archive-worm');
     expect(putObjCall.input?.StorageClass).toBe('DEEP_ARCHIVE');
     
     // Verify JSONL payload
     const bodyStr = (putObjCall.input?.Body as string) || '';
     const lines = bodyStr.split('\n');
     expect(lines.length).toBe(2);
-    expect(JSON.parse(lines[0]).event_id).toBe('uuid-1');
+    expect(JSON.parse(lines[0]!).event_id).toBe('uuid-1');
 
     // Verify DB delete was called with the correct IDs
     expect(dbMock.query).toHaveBeenCalledTimes(2);

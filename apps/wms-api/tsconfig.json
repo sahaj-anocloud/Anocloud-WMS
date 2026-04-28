@@ -3,10 +3,6 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "paths": {
-      "@sumosave/shared-types": ["../../packages/shared-types/src/index.ts"],
-      "@sumosave/shared-types/*": ["../../packages/shared-types/src/*"]
-    }
   },
   "references": [
     { "path": "../../packages/shared-types" }

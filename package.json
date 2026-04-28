@@ -1,0 +1,43 @@
+{
+  "name": "sumosave-wms",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/wms-api",
+    "apps/vendor-portal",
+    "apps/scanner-app",
+    "services/sap-integration",
+    "packages/shared-types",
+    "packages/db-migrations"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "eslint . --ext .ts,.tsx",
+    "typecheck": "tsc --build",
+    "format": "prettier --write .",
+    "migrate:staging": "npm run migrate:staging --workspace=packages/db-migrations",
+    "reset:staging": "docker exec -i wms-db-staging-1 psql -U wms_user -d postgres -f /scripts/reset-staging.sql && npm run migrate:staging"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.29.0",
+    "prettier": "^3.2.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.4.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "overrides": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "dependencies": {
+    "enhanced-resolve": "^5.21.0"
+  }
+}

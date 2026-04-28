@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wms-api
+  namespace: sumosave-wms
+  labels:
+    app: wms-api
+    version: "1.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: wms-api
+  template:
+    metadata:
+      labels:
+        app: wms-api
+    spec:
+      serviceAccountName: wms-api
+      containers:
+        - name: wms-api
+          image: placeholder-ecr-account.dkr.ecr.ap-south-1.amazonaws.com/sumosave/wms-api:latest
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "3000"
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: wms-api-secrets
+                  key: db-host
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: wms-api-secrets
+                  key: db-name
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: wms-api-secrets
+                  key: db-user
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wms-api-secrets
+                  key: db-password
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: wms-api-secrets
+                  key: redis-url
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: wms-api-secrets
+                  key: jwt-secret
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: wms-api
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wms-api
+  namespace: sumosave-wms
+  labels:
+    app: wms-api
+spec:
+  selector:
+    app: wms-api
+  ports:
+    - port: 80
+      targetPort: 3000
+      name: http
+  type: ClusterIP

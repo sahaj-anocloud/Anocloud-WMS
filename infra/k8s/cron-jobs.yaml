@@ -1,0 +1,143 @@
+# SAP Sync CronJob — runs every 15 minutes
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sap-sync
+  namespace: sumosave-wms
+  labels:
+    app: sap-sync
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: sap-sync
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: wms-worker
+          containers:
+            - name: sap-sync
+              image: placeholder-ecr-account.dkr.ecr.ap-south-1.amazonaws.com/sumosave/wms-api:latest
+              command: ["node", "dist/jobs/sap-sync.js"]
+              env:
+                - name: NODE_ENV
+                  value: "production"
+                - name: SAP_SERVICE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: wms-api-secrets
+                      key: sap-service-url
+                - name: DB_HOST
+                  valueFrom:
+                    secretKeyRef:
+                      name: wms-api-secrets
+                      key: db-host
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "256Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "512Mi"
+---
+# Dwell Timer Check CronJob — runs every 60 seconds
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: dwell-timer-check
+  namespace: sumosave-wms
+  labels:
+    app: dwell-timer-check
+spec:
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app: dwell-timer-check
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: wms-worker
+          containers:
+            - name: dwell-timer-check
+              image: placeholder-ecr-account.dkr.ecr.ap-south-1.amazonaws.com/sumosave/wms-api:latest
+              command: ["node", "dist/jobs/dwell-timer-check.js"]
+              env:
+                - name: NODE_ENV
+                  value: "production"
+                - name: DB_HOST
+                  valueFrom:
+                    secretKeyRef:
+                      name: wms-api-secrets
+                      key: db-host
+                - name: SQS_ALERT_EVENTS_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: wms-api-secrets
+                      key: sqs-alert-events-url
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "128Mi"
+                limits:
+                  cpu: "200m"
+                  memory: "256Mi"
+---
+# Expiry Alerts CronJob — runs daily at 06:00 IST (00:30 UTC)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: expiry-alerts
+  namespace: sumosave-wms
+  labels:
+    app: expiry-alerts
+spec:
+  schedule: "30 0 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: expiry-alerts
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: wms-worker
+          containers:
+            - name: expiry-alerts
+              image: placeholder-ecr-account.dkr.ecr.ap-south-1.amazonaws.com/sumosave/wms-api:latest
+              command: ["node", "dist/jobs/expiry-alerts.js"]
+              env:
+                - name: NODE_ENV
+                  value: "production"
+                - name: DB_HOST
+                  valueFrom:
+                    secretKeyRef:
+                      name: wms-api-secrets
+                      key: db-host
+                - name: SQS_ALERT_EVENTS_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: wms-api-secrets
+                      key: sqs-alert-events-url
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "256Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "512Mi"

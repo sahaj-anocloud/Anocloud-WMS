@@ -1,0 +1,9 @@
+BEGIN;
+
+ALTER TABLE asns 
+  ADD COLUMN IF NOT EXISTS confidence_score SMALLINT DEFAULT 0;
+
+ALTER TABLE yard_entries 
+  ADD COLUMN IF NOT EXISTS enhanced_qc BOOLEAN DEFAULT false;
+
+COMMIT;

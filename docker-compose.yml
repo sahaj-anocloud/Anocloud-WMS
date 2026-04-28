@@ -1,0 +1,69 @@
+services:
+  db:
+    image: timescale/timescaledb:latest-pg15
+    environment:
+      POSTGRES_USER: wms_user
+      POSTGRES_PASSWORD: wms_password
+      POSTGRES_DB: wms_db
+    ports:
+      - "5432:5432"
+    command: postgres -c shared_preload_libraries=timescaledb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  wms-db-staging:
+    container_name: wms-db-staging-1
+    image: timescale/timescaledb:latest-pg15
+    environment:
+      POSTGRES_USER: wms_user
+      POSTGRES_PASSWORD: wms_password
+      POSTGRES_DB: wms_db
+    ports:
+      - "5433:5432"
+    command: postgres -c shared_preload_libraries=timescaledb
+    volumes:
+      - wms-db-staging-data:/var/lib/postgresql/data
+      - ./scripts:/scripts
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  localstack:
+    image: localstack/localstack:3.4.0
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=sqs,sns,s3
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+
+  sap-integration:
+    image: maven:3.9-eclipse-temurin-17
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./services/sap-integration:/app
+      # Cache maven repository so subsequent restarts are fast
+      - maven_cache:/root/.m2
+    working_dir: /app
+    environment:
+      - DB_URL=jdbc:postgresql://db:5432/wms_db
+      - DB_USERNAME=wms_user
+      - DB_PASSWORD=wms_password
+      - ALERT_QUEUE_URL=http://localstack:4566/000000000000/Alert-Events
+      - AWS_REGION=ap-south-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    command: mvn spring-boot:run -Dspring-boot.run.jvmArguments="-Dserver.port=8080"
+    depends_on:
+      - db
+      - localstack
+
+volumes:
+  postgres_data:
+  wms-db-staging-data:
+  maven_cache:

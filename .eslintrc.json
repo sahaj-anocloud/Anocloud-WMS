@@ -1,0 +1,7 @@
+{
+  "extends": "./.eslintrc.base.json",
+  "parserOptions": {
+    "project": ["./tsconfig.json", "./apps/*/tsconfig.json", "./packages/*/tsconfig.json"]
+  },
+  "ignorePatterns": ["dist/", "build/", ".next/", "node_modules/", "*.js", "*.mjs"]
+}

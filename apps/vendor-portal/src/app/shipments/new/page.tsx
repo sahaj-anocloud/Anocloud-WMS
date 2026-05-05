@@ -243,8 +243,7 @@ export default function NewASNPage() {
         <h1 className="text-2xl font-bold text-white">Create New ASN</h1>
         <p className="text-white/40 text-sm mt-1">Advance Shipment Notice · Channel: Portal (highest confidence score)</p>
       </div>
-
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6" suppressHydrationWarning>
 
         {/* Step 1 — PO Reference */}
         <div className="card p-6">
@@ -332,7 +331,7 @@ export default function NewASNPage() {
             </p>
             <div className="space-y-4">
               {lines.map((line, i) => (
-                <div key={line.sku_id} className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                <div key={`${line.sku_id}-${i}`} className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06]">
                   <div className="flex items-start justify-between mb-3 gap-2">
                     <div className="min-w-0">
                       <p className="text-xs font-bold text-white truncate">{line.sku_name}</p>

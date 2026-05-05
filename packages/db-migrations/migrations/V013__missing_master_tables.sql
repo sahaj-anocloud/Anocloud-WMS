@@ -100,7 +100,15 @@ BEGIN
     INSERT INTO dock_zones (zone_id, dc_id, zone_name, temp_class, capacity)
     VALUES 
     ('Z-AMB-01', v_dc_id, 'Ambient Quarantine Zone 01', 'Ambient', 1000),
-    ('Z-COLD-01', v_dc_id, 'Cold Quarantine Zone 01', 'Cold', 500)
+    ('Z-COLD-01', v_dc_id, 'Cold Quarantine Zone 01', 'Cold', 500),
+    ('D-01', 'DC-BLR-01', 'Dock Door 01', 'Ambient', 1),
+    ('D-02', 'DC-BLR-01', 'Dock Door 02', 'Ambient', 1),
+    ('D-03', 'DC-BLR-01', 'Dock Door 03', 'Ambient', 1),
+    ('D-04', 'DC-BLR-01', 'Dock Door 04', 'Ambient', 1),
+    ('D-05', 'DC-BLR-01', 'Dock Door 05', 'Ambient', 1),
+    ('D-06', 'DC-BLR-01', 'Dock Door 06', 'Ambient', 1),
+    ('D-07', 'DC-BLR-01', 'Dock Door 07', 'Cold', 1),
+    ('D-08', 'DC-BLR-01', 'Dock Door 08', 'Cold', 1)
     ON CONFLICT (zone_id) DO NOTHING;
 END $$;
 

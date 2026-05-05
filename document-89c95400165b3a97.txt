@@ -1,0 +1,663 @@
+Perfect — this is the level where you stop being a “developer” and start acting like a system architect + product owner.
+
+I tried opening your reference app, but it’s a client-side app (JS required), so structure isn’t directly visible  — which is fine. I’ll guide you how to evaluate + extend it properly and then give you a complete system design execution plan you can literally hand to Antigravity.
+
+
+---
+
+🧠 FIRST: WHAT YOU SHOULD TELL ANTIGRAVITY (BIG PICTURE)
+
+👉 Don’t say:
+“Build WMS”
+
+👉 Say THIS clearly:
+
+> “We are building a rule-driven inbound control system, not a UI or CRUD app.”
+
+
+
+
+---
+
+🔥 SYSTEM DESIGN — REAL EXECUTION PLAN
+
+I’ll break this into 10 layers so you can guide them properly.
+
+
+---
+
+🏗️ 1. SYSTEM BOUNDARY (VERY IMPORTANT)
+
+You MUST define:
+
+WMS = Execution Layer
+SAP = Financial Layer
+
+
+---
+
+🎯 Rule:
+
+WMS decides:
+
+What arrived
+
+What is correct
+
+
+SAP records:
+
+Money
+
+Accounting
+
+
+
+
+---
+
+🔥 Instruction to team:
+
+> “No direct manual SAP entry. All GRN must come from WMS.”
+
+
+
+
+---
+
+🧱 2. SYSTEM ARCHITECTURE (REAL VERSION)
+
+Tell them to build like this:
+
+Frontend (Next.js)
+↓
+API Gateway (NestJS)
+↓
+---------------------------
+| Domain Services         |
+---------------------------
+| Vendor Service         |
+| ASN Service            |
+| Appointment Service    |
+| Gate Service           |
+| Receiving Service      |
+| QC Service             |
+| Validation Engine      |
+| GRN Service            |
+| Inventory Service      |
+| Exception Service      |
+---------------------------
+↓
+Database (Postgres)
+↓
+Message Queue (Redis/Kafka)
+↓
+SAP Adapter Service
+
+
+---
+
+🔥 Important Instruction:
+
+👉 “Each service must be independent module, not one big backend”
+
+
+---
+
+🧠 3. DOMAIN-DRIVEN DESIGN (CRITICAL)
+
+Split system into domains
+
+
+---
+
+📦 DOMAIN 1: Inbound Planning
+
+Vendor
+
+SKU
+
+PO
+
+ASN
+
+
+
+---
+
+🚚 DOMAIN 2: Dock Execution
+
+Gate Entry
+
+Dock Assignment
+
+Unloading
+
+
+
+---
+
+🔍 DOMAIN 3: Receiving
+
+QC
+
+Scanning
+
+Barcode
+
+
+
+---
+
+💰 DOMAIN 4: Commercial Control
+
+GST validation
+
+Cost validation
+
+Promo rules
+
+
+
+---
+
+📊 DOMAIN 5: Inventory
+
+Stock state
+
+Ledger
+
+
+
+---
+
+⚠️ DOMAIN 6: Exceptions
+
+Hold
+
+Quarantine
+
+Approval
+
+
+
+---
+
+👉 Tell them:
+
+> “Each domain = separate module + service”
+
+
+
+
+---
+
+🗄️ 4. DATABASE DESIGN (REAL IMPLEMENTATION)
+
+Now guide them like this 👇
+
+
+---
+
+🔥 CORE RULE
+
+👉 “Every action = event log”
+
+
+---
+
+🧾 IMPORTANT TABLES
+
+
+---
+
+🔹 Event Log (MOST IMPORTANT)
+
+EventLog
+- id
+- eventType (GATE_ENTRY, QC_DONE, GRN_CREATED)
+- entityId
+- userId
+- deviceId
+- timestamp
+- metadata (JSON)
+
+
+---
+
+👉 Tell them:
+
+> “Without event logs, system is useless”
+
+
+
+
+---
+
+🔹 ASN + Items
+
+ASN
+ASNItem
+
+
+---
+
+🔹 Receiving
+
+ReceivingSession
+QCScan
+
+
+---
+
+🔹 Inventory
+
+Inventory
+InventoryLedger
+
+
+---
+
+🔹 Exception
+
+Exception
+ExceptionHistory
+
+
+---
+
+🧠 5. EVENT-DRIVEN ARCHITECTURE (MANDATORY)
+
+Tell them:
+
+👉 “No direct chaining, use events”
+
+
+---
+
+🔥 Example Flow
+
+ASN_CREATED
+→ SLOT_BOOKED
+
+TRUCK_ARRIVED
+→ DOCK_ASSIGNED
+
+QC_COMPLETED
+→ VALIDATION_TRIGGERED
+
+VALIDATION_SUCCESS
+→ GRN_CREATED
+
+GRN_CREATED
+→ INVENTORY_UPDATED
+→ SAP_SYNC
+
+
+---
+
+🔥 Tech:
+
+Redis Queue (start)
+
+Kafka (scale)
+
+
+
+---
+
+🧠 6. VALIDATION ENGINE (CORE OF SYSTEM)
+
+👉 THIS is your brain
+
+
+---
+
+Build it as separate module:
+
+ValidationEngine
+
+
+---
+
+Rules:
+
+IF GST mismatch → BLOCK
+IF price mismatch → BLOCK
+IF expiry missing → BLOCK
+IF scan incomplete → BLOCK
+
+
+---
+
+🔥 Instruction:
+
+> “No validation logic inside controller. Everything inside rule engine.”
+
+
+
+
+---
+
+🧠 7. RECEIVING ENGINE (MOST COMPLEX)
+
+
+---
+
+Flow:
+
+Start Receiving Session
+→ Scan SKU
+→ Capture Batch
+→ Capture Expiry
+→ Mark Damage
+→ Save Scan
+
+
+---
+
+Risk-Based Logic:
+
+IF category = FMCG
+→ 100% scan
+
+IF category = Staples
+→ Sample scan
+
+
+---
+
+🔥 Instruction:
+
+> “Scanner UI must be FAST — no lag, no reload”
+
+
+
+
+---
+
+🧠 8. EXCEPTION SYSTEM (VERY IMPORTANT)
+
+
+---
+
+Types:
+
+GST mismatch
+
+Cost mismatch
+
+Damage
+
+Missing barcode
+
+
+
+---
+
+Flow:
+
+Create Exception
+→ Assign to Role
+→ Approve / Reject
+→ Update Status
+
+
+---
+
+🔥 Special Rule:
+
+IF perishable
+→ start timer
+→ alert after 30 min
+
+
+---
+
+🧠 9. FRONTEND DESIGN (BASED ON YOUR LINK)
+
+Even though UI didn’t load fully, I’ll tell you what it SHOULD have:
+
+
+---
+
+👷 Worker UI
+
+Scan screen
+
+Big buttons
+
+Minimal typing
+
+
+
+---
+
+🧑‍💼 Supervisor UI
+
+Dock dashboard
+
+Queue view
+
+Exception panel
+
+
+
+---
+
+💰 Finance UI
+
+GST mismatch screen
+
+Approval actions
+
+
+
+---
+
+📊 Dashboard
+
+Live trucks
+
+Pending GRN
+
+Exceptions
+
+
+
+---
+
+🔥 Instruction:
+
+> “Frontend is NOT form-based. It is workflow-based.”
+
+
+
+
+---
+
+🧠 10. SAP INTEGRATION (CRITICAL)
+
+
+---
+
+Flow:
+
+SAP → PO → WMS
+WMS → GRN → SAP
+
+
+---
+
+Must build:
+
+SAPAdapterService
+
+
+---
+
+🔥 Rule:
+
+👉 Retry + queue
+
+IF SAP fails
+→ retry
+→ don't block system
+
+
+---
+
+⚡ 11. REAL PRODUCTION REQUIREMENTS
+
+
+---
+
+🔐 Security
+
+JWT auth
+
+Role-based access
+
+
+
+---
+
+⚡ Performance
+
+Scanner API < 200ms
+
+No heavy queries
+
+
+
+---
+
+📡 Offline Support
+
+Store scans locally
+
+Sync later
+
+
+
+---
+
+🧠 12. HOW TO REVIEW YOUR CURRENT APP
+
+Go to your deployed app and check:
+
+
+---
+
+❌ If this exists → BAD
+
+Too many forms
+
+Manual input
+
+No validation blocking
+
+No event logs
+
+
+
+---
+
+✅ If this exists → GOOD
+
+Scan-first UI
+
+Step-by-step flow
+
+Auto validation
+
+Real-time updates
+
+
+
+---
+
+🏁 FINAL INSTRUCTIONS YOU SHOULD GIVE ANTIGRAVITY
+
+Just copy this and send 👇
+
+
+---
+
+🔥 FINAL MESSAGE TO TEAM
+
+> We are not building a UI or CRUD system.
+We are building a rule-driven, event-based inbound control engine.
+
+Key requirements:
+
+1. Domain-based modular architecture
+
+
+2. Event-driven backend (no direct chaining)
+
+
+3. Strong validation engine (centralized rules)
+
+
+4. Scan-first UX (no manual dependency)
+
+
+5. Full event logging (audit-first system)
+
+
+6. Exception workflow with role-based approvals
+
+
+7. SAP integration via async adapter
+
+
+8. Inventory only created after validation
+
+
+
+This system must eliminate:
+
+Manual decisions
+
+Calculator logic
+
+WhatsApp approvals
+
+
+And enforce:
+
+System-driven control
+
+First-touch accuracy
+
+Full traceability
+
+
+
+
+
+---
+
+🚀 FINAL INSIGHT (VERY IMPORTANT)
+
+If you guide them properly:
+
+👉 You are not building a project
+👉 You are building a company’s operational backbone
+
+
+---
+
+🔥 NEXT STEP
+
+If you want, I’ll now:
+
+✅ Convert this into actual NestJS folder structure
+✅ Write Prisma schema file (production level)
+✅ Design exact API contracts (Swagger ready)
+✅ Map your UI (based on your deployed app)
+
+Just say:
+
+👉 “Go deeper into backend implementation”

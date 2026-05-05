@@ -51,7 +51,7 @@ CREATE TABLE skus (
   dc_id           VARCHAR(20) NOT NULL,
   sku_code        VARCHAR(50) NOT NULL,
   name            TEXT NOT NULL,
-  category        VARCHAR(50) NOT NULL,  -- FMCG_Food | BDF | Fresh | Chocolate
+  category        VARCHAR(50) NOT NULL,  -- FMCG_Food | FMCG_NonFood | BDF | Fresh_FV | Fresh_Dairy | Frozen | Staples | Chocolate | Pharma | General_Merchandise
   packaging_class VARCHAR(30) NOT NULL,  -- SealedCarton | GunnyBag | Rice | ShrinkWrap | Loose
   is_ft           BOOLEAN NOT NULL DEFAULT false,
   is_perishable   BOOLEAN NOT NULL DEFAULT false,

@@ -66,7 +66,15 @@ export interface BulkImportResult {
 
 // ─── Categories that require volumetric data ──────────────────────────────────
 
-const VOLUMETRIC_CATEGORIES: SKUCategory[] = ['FMCG_Food', 'BDF', 'Fresh', 'Chocolate'];
+const VOLUMETRIC_CATEGORIES: SKUCategory[] = [
+  'FMCG_Food',
+  'FMCG_NonFood',
+  'BDF',
+  'Fresh_FV',
+  'Fresh_Dairy',
+  'Frozen',
+  'Chocolate',
+];
 
 // ─── SKUCompletenessValidator ─────────────────────────────────────────────────
 

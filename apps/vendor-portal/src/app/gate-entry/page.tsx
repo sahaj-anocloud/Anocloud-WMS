@@ -143,8 +143,16 @@ export default function GateEntryPage() {
           <h1 className="text-xl font-bold text-white">Gate Entry</h1>
           <p className="text-xs text-white/40 mt-0.5">Vehicle registration · Compliance check · MOQ validation · Dock assignment</p>
         </div>
-        <div className="text-xs text-white/40 bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2">
-          Gate Staff · DC Bangalore
+        <div className="flex items-center gap-3">
+          <a
+            href="/shipments/paper"
+            className="flex items-center gap-1.5 text-xs font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-3 py-2 rounded-lg hover:bg-amber-400/15 transition-colors"
+          >
+            📄 Paper ASN
+          </a>
+          <div className="text-xs text-white/40 bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2">
+            Gate Staff · DC Bangalore
+          </div>
         </div>
       </div>
 

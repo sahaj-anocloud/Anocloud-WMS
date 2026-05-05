@@ -55,9 +55,9 @@ describe('SKUCompletenessValidator', () => {
     expect(missing).toContain('height_mm');
   });
 
-  it('returns missing volumetric attributes for Fresh', () => {
-    const data = { ...BASE_FMCG_FOOD, category: 'Fresh' as const, width_mm: undefined };
-    const missing = SKUCompletenessValidator('Fresh', data);
+  it('returns missing volumetric attributes for Fresh_FV', () => {
+    const data = { ...BASE_FMCG_FOOD, category: 'Fresh_FV' as const, width_mm: undefined };
+    const missing = SKUCompletenessValidator('Fresh_FV', data);
     expect(missing).toContain('width_mm');
   });
 
@@ -194,9 +194,9 @@ describe('SKUService.createSKU', () => {
   });
 
   it('sets status to Active for a non-volumetric category without volumetric data', async () => {
-    // A category not in VOLUMETRIC_CATEGORIES (FMCG_Food, BDF, Fresh, Chocolate)
+    // A category not in VOLUMETRIC_CATEGORIES (FMCG_Food, BDF, Fresh_FV, Fresh_Dairy, Frozen, Chocolate etc.)
     // should not require volumetric fields.
-    const nonVolumetricCategory = 'FMCG_Non_Food' as never;
+    const nonVolumetricCategory = 'Staples' as never;
     const nonVolumetricData = {
       sku_code: 'SKU-NV',
       name: 'Non Volumetric',

@@ -153,6 +153,30 @@ export default async function vendorRoutes(fastify: FastifyInstance): Promise<vo
     },
   );
 
+  // GET /api/v1/vendors/:id — lookup by vendor_id UUID or vendor_code (Gate_Staff, Inbound_Supervisor, Admin_User)
+  fastify.get(
+    '/api/v1/vendors/:id',
+    { preHandler: requireRole('Gate_Staff', 'Inbound_Supervisor', 'Admin_User', 'Leadership_Analytics_User') },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+
+      // Support lookup by UUID or vendor_code (e.g. VND-001)
+      const result = await fastify.dbRead.query(
+        `SELECT vendor_id, vendor_code, name, gstin, compliance_status, dc_id, created_at
+         FROM vendors
+         WHERE (vendor_id::text = $1 OR vendor_code = $1)
+         LIMIT 1`,
+        [id],
+      );
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'VENDOR_NOT_FOUND', message: `Vendor not found: ${id}` });
+      }
+
+      return reply.code(200).send(result.rows[0]);
+    },
+  );
+
   // GET /api/v1/vendors/:id/documents — Vendor_User, Finance_User, Admin_User
   fastify.get(
     '/api/v1/vendors/:id/documents',

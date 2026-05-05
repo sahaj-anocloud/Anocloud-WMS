@@ -36,7 +36,17 @@ export interface VendorDocument {
   version: number;
 }
 
-export type SKUCategory = 'FMCG_Food' | 'BDF' | 'Fresh' | 'Chocolate';
+export type SKUCategory =
+  | 'FMCG_Food'       // Packaged food — rice, oil, biscuits, noodles
+  | 'FMCG_NonFood'    // Detergent, personal care, household
+  | 'BDF'             // Beauty, Drugs & Fashion
+  | 'Fresh_FV'        // Fresh fruits & vegetables
+  | 'Fresh_Dairy'     // Milk, curd, paneer, butter
+  | 'Frozen'          // Frozen foods, ice cream
+  | 'Staples'         // Pulses, grains, flour (bulk)
+  | 'Pharma'          // Medicines, supplements
+  | 'Chocolate'       // Chocolate & confectionery (cold-chain)
+  | 'General_Merchandise'; // Non-food general items
 export type PackagingClass = 'SealedCarton' | 'GunnyBag' | 'Rice' | 'ShrinkWrap' | 'Loose';
 export type SKUStatus = 'Active' | 'Inactive' | 'Incomplete';
 

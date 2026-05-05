@@ -54,6 +54,23 @@ export default async function gateRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // PATCH alias — frontend uses PATCH, backend originally had PUT
+  fastify.patch('/api/v1/yard/:entry_id/assign-dock', async (request, reply) => {
+    const { entry_id } = request.params as any;
+    const { dock_door } = request.body as any;
+
+    if (!dock_door) {
+      return reply.code(400).send({ error: 'dock_door is required' });
+    }
+
+    try {
+      await gateService.assignDock({ entry_id, dock_door });
+      return reply.code(200).send({ message: 'Dock assigned successfully' });
+    } catch (error: any) {
+      return reply.code(400).send({ error: error.message });
+    }
+  });
+
   fastify.get('/api/v1/yard/:entry_id/dwell', async (request, reply) => {
     const { entry_id } = request.params as any;
 

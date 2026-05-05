@@ -119,8 +119,8 @@ export class AppointmentService {
    */
   async createAppointment(payload: CreateAppointmentPayload): Promise<AppointmentRow> {
     // Validate ASN exists
-    const asnResult = await this.dbRead.query<{ asn_id: string; status: string }>(
-      `SELECT asn_id, status FROM asns WHERE asn_id = $1`,
+    const asnResult = await this.dbRead.query<{ asn_id: string; status: string; vendor_id: string }>(
+      `SELECT asn_id, status, vendor_id FROM asns WHERE asn_id = $1`,
       [payload.asn_id],
     );
 
@@ -132,6 +132,10 @@ export class AppointmentService {
     if (asn.status !== 'Submitted' && asn.status !== 'Active') {
       throw new Error(`ASN_NOT_ACTIVE: ASN ${payload.asn_id} has status ${asn.status}`);
     }
+
+    // Override the vendor_id from the payload with the actual vendor_id of the ASN.
+    // This fixes issues where internal users (like SCM Head) try to book on behalf of a vendor.
+    payload.vendor_id = asn.vendor_id;
 
     const slotStart = new Date(payload.slot_start);
     const slotEnd = new Date(payload.slot_end);
@@ -165,7 +169,7 @@ export class AppointmentService {
       await writeAuditEvent(this.db, {
         dc_id: payload.dc_id,
         event_type: 'APPOINTMENT_CREATED',
-        user_id: 'system',
+        user_id: payload.vendor_id,
         device_id: 'vendor-portal',
         reference_doc: appointment.appointment_id,
         new_state: {

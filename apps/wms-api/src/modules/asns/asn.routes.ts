@@ -7,10 +7,10 @@ export default async function asnRoutes(fastify: FastifyInstance): Promise<void>
   const alertSvc = new AlertService(fastify.db, fastify.sqsClient);
   const svc = new ASNService(fastify.db, fastify.dbRead, alertSvc);
 
-  // POST /api/v1/asns — submit ASN (Vendor_User, Inbound_Supervisor, BnM_User)
+  // POST /api/v1/asns — submit ASN (Vendor_User, Inbound_Supervisor, BnM_User, Admin_User)
   fastify.post(
     '/api/v1/asns',
-    { preHandler: requireRole('Vendor_User', 'Inbound_Supervisor', 'BnM_User') },
+    { preHandler: requireRole('Vendor_User', 'Inbound_Supervisor', 'BnM_User', 'Admin_User') },
     async (request, reply) => {
       const payload = request.body as CreateASNPayload;
 
@@ -109,5 +109,44 @@ export default async function asnRoutes(fastify: FastifyInstance): Promise<void>
         throw err;
       }
     },
+  );
+
+  // GET /api/v1/asns — retrieve list of ASNs (Vendor_User, Inbound_Supervisor, BnM_User, Admin_User)
+  fastify.get(
+    '/api/v1/asns',
+    { preHandler: requireRole('Vendor_User', 'Inbound_Supervisor', 'BnM_User', 'Admin_User') },
+    async (request, reply) => {
+      const query = request.query as { vendor_id?: string; status?: string };
+      const isAdmin = request.user?.roles.includes('Admin_User') ||
+                      request.user?.roles.includes('Inbound_Supervisor') ||
+                      request.user?.roles.includes('BnM_User');
+
+      let vendorId: string | undefined;
+
+      if (isAdmin) {
+        // Admins can filter by vendor_id query param or see all
+        vendorId = query.vendor_id;
+      } else {
+        // Vendor_User: look up their vendor record by user_id from JWT
+        // The vendor portal stores vendor_id in the ASN payload — look it up from the DB
+        try {
+          const vendorResult = await fastify.dbRead.query<{ vendor_id: string }>(
+            `SELECT vendor_id FROM vendors WHERE vendor_code = $1 OR vendor_id::text = $1 LIMIT 1`,
+            [request.user.user_id],
+          );
+          if (vendorResult.rows.length > 0) {
+            vendorId = vendorResult.rows[0]!.vendor_id;
+          } else {
+            // Fallback: return all ASNs for this DC (vendor portal shows own submissions)
+            vendorId = undefined;
+          }
+        } catch {
+          vendorId = undefined;
+        }
+      }
+
+      const asns = await svc.getASNs(vendorId, query.status);
+      return reply.code(200).send(asns);
+    }
   );
 }

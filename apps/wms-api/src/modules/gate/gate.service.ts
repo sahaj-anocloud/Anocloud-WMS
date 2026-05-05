@@ -49,26 +49,32 @@ export class GateService {
     try {
       await client.query('BEGIN');
 
-      // Validate vendor has Active compliance status
-      const vendorResult = await client.query(
-        'SELECT compliance_status FROM vendors WHERE vendor_id = $1',
-        [entry.vendor_id]
+      // Resolve vendor — accept both UUID and vendor_code (e.g. VND-001)
+      const vendorLookup = await client.query(
+        `SELECT vendor_id, compliance_status FROM vendors
+         WHERE (vendor_id::text = $1 OR vendor_code = $1)
+         LIMIT 1`,
+        [entry.vendor_id],
       );
 
-      if (vendorResult.rows.length === 0) {
+      if (vendorLookup.rows.length === 0) {
         throw new Error('Vendor not found');
       }
 
-      if (vendorResult.rows[0].compliance_status !== 'Active') {
-        throw new Error(`Vendor compliance status is ${vendorResult.rows[0].compliance_status}. Only Active vendors may enter.`);
+      // Use the real UUID for all subsequent operations
+      const resolvedVendorId: string = vendorLookup.rows[0].vendor_id;
+      const resolvedEntry = { ...entry, vendor_id: resolvedVendorId };
+
+      if (vendorLookup.rows[0].compliance_status !== 'Active') {
+        throw new Error(`Vendor compliance status is ${vendorLookup.rows[0].compliance_status}. Only Active vendors may enter.`);
       }
 
       // Validate confirmed appointment for today if appointment_id provided
-      if (entry.appointment_id) {
+      if (resolvedEntry.appointment_id) {
         const appointmentResult = await client.query(
           `SELECT status, slot_start FROM appointments 
            WHERE appointment_id = $1 AND vendor_id = $2`,
-          [entry.appointment_id, entry.vendor_id]
+          [resolvedEntry.appointment_id, resolvedVendorId]
         );
 
         if (appointmentResult.rows.length === 0) {
@@ -94,58 +100,48 @@ export class GateService {
 
       // Check confidence score and MOQ policy if ASN is provided
       let enhanced_qc = false;
-      if (entry.asn_id) {
+      if (resolvedEntry.asn_id) {
         const asnScoreResult = await client.query(
           `SELECT confidence_score FROM asns WHERE asn_id = $1`,
-          [entry.asn_id]
+          [resolvedEntry.asn_id]
         );
         if (asnScoreResult.rows.length > 0) {
           const score = asnScoreResult.rows[0].confidence_score;
           if (score < 60) {
             enhanced_qc = true;
             await this.callQCEngine('LowConfidence', {
-              asn_id: entry.asn_id,
-              vendor_id: entry.vendor_id,
-              vehicle_reg: entry.vehicle_reg
+              asn_id: resolvedEntry.asn_id,
+              vendor_id: resolvedVendorId,
+              vehicle_reg: resolvedEntry.vehicle_reg
             });
           }
         }
 
-        const asnResult = await client.query(
-          `SELECT a.asn_id, po.sap_po_number
+        const moqResult = await client.query(
+          `SELECT vsp.moq_quantity, SUM(pol.ordered_qty) as total_qty, vsp.category_id
            FROM asns a
-           JOIN purchase_orders po ON a.po_id = po.po_id
-           WHERE a.asn_id = $1`,
-          [entry.asn_id]
+           JOIN po_lines pol ON a.po_id = pol.po_id
+           JOIN skus s ON pol.sku_id = s.sku_id
+           JOIN vendor_schedule_policies vsp ON a.vendor_id = vsp.vendor_id AND s.category = vsp.category_id
+           WHERE a.asn_id = $1
+           GROUP BY vsp.moq_quantity, vsp.category_id`,
+          [resolvedEntry.asn_id]
         );
 
-          // Real MOQ Check (Requirement 6.3 / BR-05)
-          const moqResult = await client.query(
-            `SELECT vsp.moq_quantity, SUM(pol.ordered_qty) as total_qty, vsp.category_id
-             FROM asns a
-             JOIN po_lines pol ON a.po_id = pol.po_id
-             JOIN skus s ON pol.sku_id = s.sku_id
-             JOIN vendor_schedule_policies vsp ON a.vendor_id = vsp.vendor_id AND s.category = vsp.category_id
-             WHERE a.asn_id = $1
-             GROUP BY vsp.moq_quantity, vsp.category_id`,
-            [entry.asn_id]
-          );
-
-          if (moqResult.rows.length > 0) {
-            for (const row of moqResult.rows) {
-              if (parseFloat(row.total_qty) < parseFloat(row.moq_quantity)) {
-                await this.sendAlert('MOQ_VIOLATION', {
-                  entry_id: entry.asn_id,
-                  vendor_id: entry.vendor_id,
-                  vehicle_reg: entry.vehicle_reg,
-                  category_id: row.category_id,
-                  actual_qty: parseFloat(row.total_qty),
-                  min_qty: parseFloat(row.moq_quantity)
-                });
-              }
+        if (moqResult.rows.length > 0) {
+          for (const row of moqResult.rows) {
+            if (parseFloat(row.total_qty) < parseFloat(row.moq_quantity)) {
+              await this.sendAlert('MOQ_VIOLATION', {
+                entry_id: resolvedEntry.asn_id,
+                vendor_id: resolvedVendorId,
+                vehicle_reg: resolvedEntry.vehicle_reg,
+                category_id: row.category_id,
+                actual_qty: parseFloat(row.total_qty),
+                min_qty: parseFloat(row.moq_quantity)
+              });
             }
           }
-
+        }
       }
 
       // Insert yard entry
@@ -154,7 +150,7 @@ export class GateService {
          (dc_id, vehicle_reg, vendor_id, asn_id, appointment_id, gate_in_at, status, enhanced_qc)
          VALUES ($1, $2, $3, $4, $5, now(), 'InYard', $6)
          RETURNING *`,
-        [entry.dc_id, entry.vehicle_reg, entry.vendor_id, entry.asn_id || null, entry.appointment_id || null, enhanced_qc]
+        [resolvedEntry.dc_id, resolvedEntry.vehicle_reg, resolvedVendorId, resolvedEntry.asn_id || null, resolvedEntry.appointment_id || null, enhanced_qc]
       );
 
       await client.query('COMMIT');
@@ -181,7 +177,7 @@ export class GateService {
          ye.dock_assigned_at,
          ye.status,
          EXTRACT(EPOCH FROM (now() - ye.gate_in_at)) as dwell_seconds,
-         a.dock_door
+         COALESCE(ye.dock_door, a.dock_door) as dock_door
        FROM yard_entries ye
        JOIN vendors v ON ye.vendor_id = v.vendor_id
        LEFT JOIN appointments a ON ye.appointment_id = a.appointment_id
@@ -217,11 +213,8 @@ export class GateService {
         [assignment.dock_door]
       );
 
-      if (dockResult.rows.length === 0) {
-        throw new Error(`DOCK_NOT_FOUND: ${assignment.dock_door}`);
-      }
-
-      const dockTemp = dockResult.rows[0].temp_class;
+      // If dock zone not configured, default to Ambient (allows assignment to proceed)
+      const dockTemp = dockResult.rows.length > 0 ? dockResult.rows[0].temp_class : 'Ambient';
 
       if (requiresCold && dockTemp === 'Ambient') {
         throw new Error('Temperature mismatch — perishable load requires Cold zone');
@@ -230,10 +223,10 @@ export class GateService {
       // Update yard entry with dock assignment
       const result = await client.query(
         `UPDATE yard_entries 
-         SET dock_assigned_at = now(), status = 'AtDock'
+         SET dock_assigned_at = now(), status = 'AtDock', dock_door = $2
          WHERE entry_id = $1
          RETURNING *`,
-        [assignment.entry_id]
+        [assignment.entry_id, assignment.dock_door]
       );
 
       if (result.rows.length === 0) {

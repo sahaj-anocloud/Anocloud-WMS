@@ -47,7 +47,7 @@ export const auth = {
   getToken: () => typeof window !== 'undefined' ? sessionStorage.getItem('wms_token') ?? '' : '',
   getUserId: () => typeof window !== 'undefined' ? sessionStorage.getItem('wms_user_id') ?? '' : '',
   getVendorId: () => typeof window !== 'undefined' ? sessionStorage.getItem('wms_vendor_id') ?? sessionStorage.getItem('wms_user_id') ?? '' : '',
-  getDcId: () => typeof window !== 'undefined' ? sessionStorage.getItem('wms_dc_id') ?? 'DC-BLR-01' : 'DC-BLR-01',
+  getDcId: () => typeof window !== 'undefined' ? sessionStorage.getItem('wms_dc_id') ?? 'BLR01' : 'BLR01',
   getRoles: (): string[] => {
     if (typeof window === 'undefined') return [];
     try { return JSON.parse(sessionStorage.getItem('wms_roles') ?? '[]'); } catch { return []; }

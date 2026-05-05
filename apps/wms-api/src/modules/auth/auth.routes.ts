@@ -19,6 +19,18 @@ const ROLE_MAP: Record<string, string[]> = {
   gate:       ['Gate_Staff', 'Inbound_Supervisor'],
 };
 
+// Scanner app OTP → role mapping (dev mode)
+// In production these would be time-based OTPs issued per shift
+const OTP_MAP: Record<string, string> = {
+  '123456': 'qc',        // QC Associate
+  '234567': 'gate',      // Gate Staff
+  '345678': 'supervisor',// Inbound Supervisor
+  '456789': 'scm_head',  // SCM Head
+  '111111': 'qc',        // Quick test OTP
+  '222222': 'gate',      // Quick test OTP
+  '333333': 'supervisor',// Quick test OTP
+};
+
 const USER_MAP: Record<string, string> = {
   scm_head:   'scm-head-001',
   supervisor: 'supervisor-001',
@@ -30,9 +42,13 @@ const USER_MAP: Record<string, string> = {
 
 export default async function authRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post('/api/v1/auth/login', async (request, reply) => {
-    const body = request.body as { role_id?: string; email?: string; password?: string };
+    const body = request.body as { role_id?: string; email?: string; password?: string; otp?: string };
 
-    const roleId = body.role_id ?? body.email?.split('@')[0];
+    // Support OTP-based login from scanner app
+    let roleId = body.role_id ?? body.email?.split('@')[0];
+    if (!roleId && body.otp) {
+      roleId = OTP_MAP[body.otp];
+    }
 
     if (!roleId || !ROLE_MAP[roleId]) {
       return reply.code(401).send({

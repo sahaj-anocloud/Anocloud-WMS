@@ -8,6 +8,7 @@ import { ScanScreen } from '../screens/ScanScreen';
 import { BatchCaptureScreen } from '../screens/BatchCaptureScreen';
 import { QuarantineScreen } from '../screens/QuarantineScreen';
 import { LPNPrintScreen } from '../screens/LPNPrintScreen';
+import { QCWizardScreen } from '../screens/QCWizardScreen';
 import { Colors } from '../theme';
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -65,6 +66,11 @@ export const AppNavigator = () => {
         name="LPNPrint" 
         component={LPNPrintScreen} 
         options={{ title: 'PRINT LABEL' }} 
+      />
+      <Stack.Screen 
+        name="QCWizard" 
+        component={QCWizardScreen} 
+        options={{ title: 'QC Scan Wizard' }} 
       />
     </Stack.Navigator>
   );

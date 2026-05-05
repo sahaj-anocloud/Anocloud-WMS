@@ -29,7 +29,7 @@ const NAV_SECTIONS = [
     label: 'Inbound Ops',
     items: [
       { href: '/receiving', label: 'Receiving & QC', icon: IconScan, roles: ['scm_head', 'supervisor', 'qc'] },
-      { href: '/discrepancy', label: 'Discrepancy', icon: IconDiscrepancy, roles: ['scm_head', 'supervisor', 'qc', 'finance'] },
+      { href: '/discrepancy', label: 'Discrepancy', icon: IconDiscrepancy, roles: ['scm_head', 'supervisor', 'finance'] },
       { href: '/exceptions', label: 'Exception Queue', icon: IconAlert, roles: ['scm_head', 'supervisor', 'finance'] },
       { href: '/alerts', label: 'Alert Center', icon: IconBell, roles: ['scm_head', 'supervisor', 'finance'] },
     ],
@@ -38,15 +38,19 @@ const NAV_SECTIONS = [
     label: 'Data & Visibility',
     items: [
       { href: '/inventory', label: 'Inventory Ledger', icon: IconInventory, roles: ['scm_head', 'supervisor', 'finance'] },
+      { href: '/vendor-scorecard', label: 'Vendor Scorecard', icon: IconScore, roles: ['scm_head', 'supervisor', 'finance', 'vendor'] },
+      { href: '/scan-policy', label: 'Scan Policy', icon: IconPolicy, roles: ['scm_head', 'supervisor'] },
       { href: '/master-data', label: 'Master Data', icon: IconDatabase, roles: ['scm_head'] },
-      { href: '/vendor-scorecard', label: 'Vendor Scorecard', icon: IconScore, roles: ['scm_head', 'finance', 'vendor'] },
+      { href: '/admin-setup', label: 'Admin Setup', icon: IconSetup, roles: ['scm_head'] },
+      { href: '/user-management', label: 'User Management', icon: IconUsers, roles: ['scm_head'] },
     ],
   },
   {
     label: 'Vendor Portal',
     items: [
       { href: '/shipments/new', label: 'New ASN', icon: IconShipment, roles: ['scm_head', 'vendor'] },
-      { href: '/appointments', label: 'Appointments', icon: IconCalendar, roles: ['scm_head', 'vendor', 'gate'] },
+      { href: '/shipments/paper', label: 'Paper ASN', icon: IconPaper, roles: ['scm_head', 'supervisor', 'gate'] },
+      { href: '/appointments', label: 'Appointments', icon: IconCalendar, roles: ['scm_head', 'supervisor', 'vendor', 'gate'] },
       { href: '/compliance', label: 'Compliance', icon: IconDoc, roles: ['scm_head', 'vendor'] },
     ],
   },
@@ -113,6 +117,14 @@ function IconShipment({ className }: { className?: string }) {
     </svg>
   );
 }
+function IconPaper({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" d="M12 2H5a1 1 0 00-1 1v14a1 1 0 001 1h10a1 1 0 001-1V6l-4-4zm0 0v4h4M7 9h6M7 12h4" />
+      <path strokeLinecap="round" d="M9 15l1.5-1.5L12 15" />
+    </svg>
+  );
+}
 function IconCalendar({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
@@ -152,6 +164,31 @@ function IconDatabase({ className }: { className?: string }) {
       <ellipse cx="10" cy="5" rx="7" ry="2.5" />
       <path strokeLinecap="round" d="M3 5v5c0 1.38 3.13 2.5 7 2.5S17 11.38 17 10V5" />
       <path strokeLinecap="round" d="M3 10v5c0 1.38 3.13 2.5 7 2.5S17 16.38 17 15v-5" />
+    </svg>
+  );
+}
+function IconPolicy({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 2L4 5v5c0 3.87 2.57 7.5 6 8.5 3.43-1 6-4.63 6-8.5V5l-6-3z" />
+      <path strokeLinecap="round" d="M7 10l2 2 4-4" />
+    </svg>
+  );
+}
+function IconSetup({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 2a1 1 0 011 1v1.07A6 6 0 0115.93 9H17a1 1 0 010 2h-1.07A6 6 0 0111 15.93V17a1 1 0 01-2 0v-1.07A6 6 0 014.07 11H3a1 1 0 010-2h1.07A6 6 0 019 4.07V3a1 1 0 011-1z" />
+      <circle cx="10" cy="10" r="2" />
+    </svg>
+  );
+}
+function IconUsers({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
+      <circle cx="8" cy="6" r="3" />
+      <path strokeLinecap="round" d="M2 17c0-3.314 2.686-5 6-5s6 1.686 6 5" />
+      <path strokeLinecap="round" d="M14 8a3 3 0 010 6M17 17c0-2.21-1.343-4-3-4.5" />
     </svg>
   );
 }
@@ -290,9 +327,13 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
       '/inventory': 'Inventory Ledger',
       '/master-data': 'Master Data',
       '/vendor-scorecard': 'Vendor Scorecard',
+      '/scan-policy': 'Scan Policy',
       '/shipments/new': 'New ASN',
+      '/shipments/paper': 'Paper ASN',
       '/appointments': 'Appointments',
       '/compliance': 'Compliance',
+      '/admin-setup': 'Admin Setup',
+      '/user-management': 'User Management',
     };
     return map[pathname] || 'Dashboard';
   })();

@@ -67,6 +67,21 @@ export default async function reportRoutes(fastify: FastifyInstance): Promise<vo
     },
   );
 
+  // GET /api/v1/reports/vendor-scorecards — all vendors scorecard list. Req 18.3
+  fastify.get(
+    '/api/v1/reports/vendor-scorecards',
+    { preHandler: requireRole('Admin_User', 'Leadership_Analytics_User', 'Finance_User', 'Inventory_Controller', 'Inbound_Supervisor') },
+    async (request, reply) => {
+      try {
+        const scorecards = await svc.getAllVendorScorecards(request.user.dc_id);
+        return reply.code(200).send({ data: scorecards, total: scorecards.length });
+      } catch (err: unknown) {
+        fastify.log.warn({ err }, 'vendor-scorecards list failed');
+        return reply.code(200).send({ data: [], total: 0 });
+      }
+    },
+  );
+
   // GET /api/v1/reports/productivity — scanner productivity dashboard. Req 18.4
   fastify.get(
     '/api/v1/reports/productivity',

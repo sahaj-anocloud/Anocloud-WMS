@@ -16,7 +16,9 @@ const DUMMY_DELIVERIES: Delivery[] = [
   { id: '3', poNumber: 'PO-88301', vendorName: 'Agro Fresh Co', itemCount: 8, status: 'Inbound' },
 ];
 
-export const DeliveryListScreen = ({ navigation }: any) => {
+export const DeliveryListScreen = ({ navigation, route }: any) => {
+  const dcId: string = route?.params?.dcId ?? 'DC-MOCK-01';
+
   return (
     <View style={styles.container}>
       <FlatList
@@ -37,6 +39,19 @@ export const DeliveryListScreen = ({ navigation }: any) => {
             </View>
             <Text style={styles.vendorText}>{item.vendorName}</Text>
             <Text style={Typography.caption}>{item.itemCount} items scheduled</Text>
+            <TouchableOpacity
+              style={styles.qcScanButton}
+              onPress={() =>
+                navigation.navigate('QCWizard', {
+                  lineId: item.id,
+                  dcId,
+                  deliveryId: item.id,
+                })
+              }
+              accessibilityLabel={`Start QC Scan for ${item.poNumber}`}
+            >
+              <Text style={styles.qcScanButtonText}>START QC SCAN</Text>
+            </TouchableOpacity>
           </TouchableOpacity>
         )}
         contentContainerStyle={styles.listContent}
@@ -84,5 +99,22 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 10,
     fontWeight: '900',
+  },
+  qcScanButton: {
+    backgroundColor: Colors.primary,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: Spacing.sm,
+    minHeight: 48,
+    minWidth: 48,
+  },
+  qcScanButtonText: {
+    color: Colors.secondary,
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
 });

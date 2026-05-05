@@ -1,8 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import { ReceivingService, type SubLineCaptureRequest } from './receiving.service.js';
+import { requireRole } from '../../plugins/rbac.js';
+import { AdminService } from '../admin/admin.service.js';
 
 export default async function receivingRoutes(fastify: FastifyInstance) {
   const receivingService = new ReceivingService(fastify.db, fastify.sqsClient);
+  const adminService = new AdminService(fastify.db);
 
   fastify.post('/api/v1/receiving/start', async (request, reply) => {
     const body = request.body as any;
@@ -86,4 +89,144 @@ export default async function receivingRoutes(fastify: FastifyInstance) {
       return reply.code(status).send({ error: error.message });
     }
   });
+
+  /**
+   * GET /api/v1/receiving/lines/:id/policy
+   * Returns the current computed policy for a delivery line (read-only).
+   * Roles: QC_Worker, Inbound_Supervisor
+   * Req 1.4
+   */
+  fastify.get(
+    '/api/v1/receiving/lines/:id/policy',
+    { preHandler: requireRole('QC_Worker', 'Inbound_Supervisor') },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+
+      try {
+        const result = await receivingService.initLinePolicy(id, request.user.dc_id);
+        return reply.code(200).send(result);
+      } catch (error: any) {
+        const status = error.message.startsWith('LINE_NOT_FOUND') ? 404
+          : error.message.startsWith('UNKNOWN_PACKAGING_CLASS') ? 400
+          : 400;
+        return reply.code(status).send({ error: error.message });
+      }
+    },
+  );
+
+  /**
+   * PUT /api/v1/receiving/lines/:id/policy/init
+   * Computes and persists the scan policy for a delivery line.
+   * Roles: QC_Worker, Inbound_Supervisor
+   * Req 1.4
+   */
+  fastify.put(
+    '/api/v1/receiving/lines/:id/policy/init',
+    { preHandler: requireRole('QC_Worker', 'Inbound_Supervisor') },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+
+      try {
+        const result = await receivingService.initLinePolicy(id, request.user.dc_id);
+        return reply.code(200).send(result);
+      } catch (error: any) {
+        const status = error.message.startsWith('LINE_NOT_FOUND') ? 404
+          : error.message.startsWith('UNKNOWN_PACKAGING_CLASS') ? 400
+          : 400;
+        return reply.code(status).send({ error: error.message });
+      }
+    },
+  );
+
+  /**
+   * PUT /api/v1/receiving/lines/:id/override
+   * Supervisor override of a scan compliance hard stop.
+   * Role: Inbound_Supervisor only
+   * Body: { reason_code: string }
+   * Req 6.1–6.3
+   */
+  fastify.put(
+    '/api/v1/receiving/lines/:id/override',
+    { preHandler: requireRole('Inbound_Supervisor') },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const body = request.body as { reason_code: string };
+
+      try {
+        const result = await receivingService.supervisorOverride({
+          line_id: id,
+          user_id: request.user.user_id,
+          user_roles: request.user.roles,
+          reason_code: body.reason_code,
+          device_id: request.headers['x-device-id'] as string ?? 'unknown',
+          dc_id: request.user.dc_id,
+        });
+
+        if (!result.success) {
+          const status = result.error === 'INSUFFICIENT_ROLE' ? 403 : 400;
+          return reply.code(status).send({ error: result.error });
+        }
+
+        return reply.code(200).send(result);
+      } catch (error: any) {
+        return reply.code(400).send({ error: error.message });
+      }
+    },
+  );
+
+  /**
+   * PUT /api/v1/receiving/lines/:id/count
+   * Records physical_count (GunnyBag) or unit_count (Loose) on a delivery line.
+   * Roles: QC_Worker, Inbound_Supervisor
+   * Body: { count_type: 'physical_count' | 'unit_count', count_value: number }
+   * Req 4.1, 4.4
+   */
+  fastify.put(
+    '/api/v1/receiving/lines/:id/count',
+    { preHandler: requireRole('QC_Worker', 'Inbound_Supervisor') },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const body = request.body as { count_type: 'physical_count' | 'unit_count'; count_value: number };
+
+      try {
+        await receivingService.recordCount({
+          line_id: id,
+          count_type: body.count_type,
+          count_value: Number(body.count_value),
+          recorded_by: request.user.user_id,
+          device_id: request.headers['x-device-id'] as string ?? 'unknown',
+        });
+
+        return reply.code(200).send({ success: true });
+      } catch (error: any) {
+        return reply.code(400).send({ error: error.message });
+      }
+    },
+  );
+
+  /**
+   * GET /api/v1/receiving/compliance
+   * Returns a per-vendor compliance summary for the authenticated DC.
+   * Roles: Inbound_Supervisor, DC_Manager, WMS_Admin
+   * Query params: from_date, to_date
+   * Req 9.3, 9.5
+   */
+  fastify.get(
+    '/api/v1/receiving/compliance',
+    { preHandler: requireRole('Inbound_Supervisor', 'DC_Manager', 'WMS_Admin') },
+    async (request, reply) => {
+      const query = request.query as { from_date?: string; to_date?: string };
+
+      try {
+        const rows = await adminService.getComplianceSummary(
+          request.user.dc_id,
+          query.from_date ?? new Date(0).toISOString(),
+          query.to_date ?? new Date().toISOString(),
+        );
+        return reply.code(200).send(rows);
+      } catch (error: any) {
+        return reply.code(400).send({ error: error.message });
+      }
+    },
+  );
 }

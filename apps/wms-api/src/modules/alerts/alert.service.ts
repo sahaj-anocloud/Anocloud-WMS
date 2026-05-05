@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+﻿import { Pool } from 'pg';
 import type { SQSClient } from '@aws-sdk/client-sqs';
 import { SendMessageCommand } from '@aws-sdk/client-sqs';
 import { NotificationService } from './notification.service.js';
@@ -232,14 +232,16 @@ export class AlertService {
       // Update delivery records for this user (if any)
       await client.query(
         `UPDATE alert_deliveries SET status = 'Acknowledged', acknowledged_at = now() 
-         WHERE alert_id = $1 AND target_user_id = $2`,
+         WHERE alert_id = $1 AND target_user_id = (CASE WHEN $2 ~ '^[0-9a-fA-F-]{36}$' THEN $2::uuid ELSE '00000000-0000-0000-0000-000000000000'::uuid END)`,
         [alertId, userId],
       );
 
       // Write audit event
       await client.query(
         `INSERT INTO audit_events (dc_id, event_type, user_id, device_id, reference_doc, new_state)
-         SELECT dc_id, 'ALERT_ACKNOWLEDGED', $1, 'system', $2, '{"status": "Acknowledged"}'
+         SELECT dc_id, 'ALERT_ACKNOWLEDGED', 
+           (CASE WHEN $1 ~ '^[0-9a-fA-F-]{36}$' THEN $1::uuid ELSE '00000000-0000-0000-0000-000000000000'::uuid END), 
+           'system', $2, '{"status": "Acknowledged"}'
          FROM alerts WHERE alert_id = $2`,
         [userId, alertId],
       );
@@ -274,7 +276,9 @@ export class AlertService {
       // Write audit event
       await client.query(
         `INSERT INTO audit_events (dc_id, event_type, user_id, device_id, reference_doc, new_state)
-         SELECT dc_id, 'ALERT_ESCALATED', $1, 'system', $2, '{"status": "Escalated", "forced": true}'
+         SELECT dc_id, 'ALERT_ESCALATED', 
+           (CASE WHEN $1 ~ '^[0-9a-fA-F-]{36}$' THEN $1::uuid ELSE '00000000-0000-0000-0000-000000000000'::uuid END), 
+           'system', $2, '{"status": "Escalated", "forced": true}'
          FROM alerts WHERE alert_id = $2`,
         [userId, alertId],
       );
@@ -352,7 +356,7 @@ export class AlertService {
    */
   async listAlerts(
     dcId: string,
-    filters: { alertType?: string; fromDate?: string; toDate?: string },
+    filters: { alertType?: string; fromDate?: string; toDate?: string; userRoles?: string[] },
   ): Promise<AlertRow[]> {
     const conditions = ['a.dc_id = $1'];
     const params: unknown[] = [dcId];
@@ -371,19 +375,32 @@ export class AlertService {
       params.push(filters.toDate);
     }
 
+    // Filter by roles — Admin sees all; others see only alerts targeted at their roles
+    const userRoles = filters.userRoles ?? [];
+    const isAdmin = userRoles.includes('Admin_User');
+    if (!isAdmin && userRoles.length > 0) {
+      const relevantAlertTypes = Object.entries(ALERT_TYPE_CONFIGS)
+        .filter(([, config]) =>
+          config.targetRoles.some(r => userRoles.includes(r)) ||
+          config.escalationTargetRoles.some(r => userRoles.includes(r))
+        )
+        .map(([type]) => type);
+      if (relevantAlertTypes.length > 0) {
+        conditions.push(`a.alert_type = ANY($${idx++})`);
+        params.push(relevantAlertTypes);
+      }
+    }
+
     const result = await this.db.query<AlertRow>(
-      `SELECT 
-         a.*, 
-         (a.acknowledged_at IS NOT NULL) as is_acknowledged 
-       FROM alerts a 
-       WHERE ${conditions.join(' AND ')} 
+      `SELECT a.*, (a.acknowledged_at IS NOT NULL) as is_acknowledged
+       FROM alerts a
+       WHERE ${conditions.join(' AND ')}
        ORDER BY triggered_at DESC LIMIT 200`,
       params,
     );
 
     return result.rows;
   }
-
   async listExceptions(dcId: string, limit: number = 50): Promise<any[]> {
     const sql = `
       -- GST Mismatches
@@ -572,13 +589,13 @@ export class AlertService {
         if (d.channel === 'Email') {
           const user = await this.db.query<{ email: string }>('SELECT email FROM user_profiles WHERE user_id = $1', [d.target_user_id]);
           if (user.rows[0]?.email) {
-            await notifier.sendEmail(user.rows[0].email, `WMS Alert: ${d.alert_type}`, JSON.stringify(d.payload), d.dc_id);
+            await notifier.sendEmail(user.rows[0].email, d.alert_type, d.payload, d.dc_id);
             sent = true;
           }
         } else if (d.channel === 'SMS') {
           const user = await this.db.query<{ phone: string }>('SELECT phone FROM user_profiles WHERE user_id = $1', [d.target_user_id]);
           if (user.rows[0]?.phone) {
-            await notifier.sendWhatsApp(user.rows[0].phone, `[WMS] ${d.alert_type}: ${JSON.stringify(d.payload)}`, d.dc_id);
+            await notifier.sendSMS(user.rows[0].phone, d.alert_type, d.payload, d.dc_id);
             sent = true;
           }
         }
@@ -587,7 +604,7 @@ export class AlertService {
         if (d.alert_type.startsWith('VENDOR_') && d.payload.vendor_id) {
           const vendor = await this.db.query<{ contact_phone: string }>('SELECT contact_phone FROM vendors WHERE vendor_id = $1', [d.payload.vendor_id]);
           if (vendor.rows[0]?.contact_phone) {
-            await notifier.sendWhatsApp(vendor.rows[0].contact_phone, `[SumoSave Vendor Portal] Alert: ${d.alert_type}`, d.dc_id);
+            await notifier.sendWhatsApp(vendor.rows[0].contact_phone, d.alert_type, d.payload, d.dc_id);
           }
         }
 

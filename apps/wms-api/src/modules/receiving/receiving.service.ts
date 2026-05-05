@@ -1,6 +1,10 @@
 import type { Pool } from 'pg';
 import type { SQSClient } from '@aws-sdk/client-sqs';
 import { SendMessageCommand } from '@aws-sdk/client-sqs';
+import { ScanPolicyEngine } from './scan-policy.engine.js';
+import type { PolicyResult } from './scan-policy.engine.js';
+
+export type { PolicyResult };
 
 export interface StartReceivingRequest {
   delivery_id: string;
@@ -34,6 +38,45 @@ export interface ScanResponse {
 export interface QCPassRequest {
   line_id: string;
   user_id: string;
+}
+
+export interface OverrideRequest {
+  line_id: string;
+  user_id: string;
+  user_roles: string[];
+  reason_code: string;
+  device_id: string;
+  dc_id: string;
+}
+
+export interface OverrideResult {
+  success: boolean;
+  error?: 'INSUFFICIENT_ROLE' | 'REASON_CODE_REQUIRED';
+  audit_event_id?: string;
+}
+
+export interface RecordCountRequest {
+  line_id: string;
+  count_type: 'physical_count' | 'unit_count';
+  count_value: number;
+  recorded_by: string;
+  device_id: string;
+}
+
+/**
+ * Pure helper: checks whether the user has the Inbound_Supervisor role.
+ * Exported for property-based testing.
+ */
+export function checkOverrideRole(userRoles: string[]): boolean {
+  return userRoles.includes('Inbound_Supervisor');
+}
+
+/**
+ * Pure helper: checks whether the reason code is non-empty / non-whitespace.
+ * Exported for property-based testing.
+ */
+export function checkReasonCode(reasonCode: string): boolean {
+  return reasonCode.trim().length > 0;
 }
 
 export interface SubLineCaptureRequest {
@@ -364,12 +407,15 @@ export class ReceivingService {
     try {
       await client.query('BEGIN');
 
-      // Get delivery line details with SKU category
+      // Get delivery line details with SKU category and packaging class
       const lineResult = await client.query(
         `SELECT dl.line_id, dl.completed_scans, dl.required_scans, dl.qc_status, 
-                dl.batch_number, dl.expiry_date, dl.sku_id, s.category
+                dl.batch_number, dl.expiry_date, dl.sku_id, s.category,
+                s.packaging_class, dl.physical_count, dl.unit_count,
+                d.dc_id, d.delivery_id
          FROM delivery_lines dl
          JOIN skus s ON dl.sku_id = s.sku_id
+         JOIN deliveries d ON dl.delivery_id = d.delivery_id
          WHERE dl.line_id = $1`,
         [request.line_id]
       );
@@ -396,9 +442,9 @@ export class ReceivingService {
         };
       }
 
-      // Check sub-line batch capture for mandated categories (FMCG_Food, BDF, Fresh)
+      // Check sub-line batch capture for mandated categories (FMCG_Food, BDF, Fresh variants)
       // BR-07 / Item 117: at least ONE sub-line with batch+expiry must exist
-      const mandatedCategories = ['FMCG_Food', 'BDF', 'Fresh'];
+      const mandatedCategories = ['FMCG_Food', 'FMCG_NonFood', 'BDF', 'Fresh_FV', 'Fresh_Dairy', 'Frozen', 'Chocolate'];
       if (mandatedCategories.includes(line.category)) {
         const subLineResult = await client.query<{ count: string }>(
           `SELECT COUNT(*) AS count FROM delivery_sub_lines WHERE line_id = $1`,
@@ -413,10 +459,31 @@ export class ReceivingService {
         }
       }
 
-      // Update QC status to Passed and line status to Closed (Item #128)
+      // Req 5.3: GunnyBag requires physical_count before QC pass
+      if (line.packaging_class === 'GunnyBag' && (line.physical_count === null || line.physical_count === undefined)) {
+        return {
+          success: false,
+          message: 'PHYSICAL_COUNT_MISSING: physical_count must be recorded for GunnyBag lines before QC pass',
+        };
+      }
+
+      // Req 5.4: Loose requires unit_count before QC pass
+      if (line.packaging_class === 'Loose' && (line.unit_count === null || line.unit_count === undefined)) {
+        return {
+          success: false,
+          message: 'UNIT_COUNT_MISSING: unit_count must be recorded for Loose lines before QC pass',
+        };
+      }
+
+      // Req 5.5: Calculate scan_compliance_pct = MIN(100, FLOOR((completed_scans / required_scans) * 100))
+      const scanCompliancePct = line.required_scans > 0
+        ? Math.min(100, Math.floor((line.completed_scans / line.required_scans) * 100))
+        : 100;
+
+      // Update QC status to Passed, line status to Closed, and persist scan_compliance_pct (Item #128)
       await client.query(
-        `UPDATE delivery_lines SET qc_status = 'Passed', status = 'Closed' WHERE line_id = $1`,
-        [request.line_id]
+        `UPDATE delivery_lines SET qc_status = 'Passed', status = 'Closed', scan_compliance_pct = $1 WHERE line_id = $2`,
+        [scanCompliancePct, request.line_id]
       );
 
       // Quantity conservation check (Item #237)
@@ -438,6 +505,18 @@ export class ReceivingService {
       }
 
       await client.query('COMMIT');
+
+      // Req 9.4: Publish SCAN_COMPLIANCE_BELOW_TARGET alert when scan_compliance_pct < 100
+      if (scanCompliancePct < 100) {
+        await this.sendAlert('SCAN_COMPLIANCE_BELOW_TARGET', {
+          delivery_line_id: request.line_id,
+          delivery_id: line.delivery_id,
+          dc_id: line.dc_id,
+          scan_compliance_pct: scanCompliancePct,
+          completed_scans: line.completed_scans,
+          required_scans: line.required_scans,
+        });
+      }
 
       return {
         success: true,
@@ -598,6 +677,149 @@ export class ReceivingService {
     } finally {
       client.release();
     }
+  }
+
+  /**
+   * Initialises the scan policy for a delivery line by calling ScanPolicyEngine.computePolicy.
+   * Returns the PolicyResult.
+   */
+  async initLinePolicy(lineId: string, dcId: string): Promise<PolicyResult> {
+    const engine = new ScanPolicyEngine(this.db, this.db);
+    return engine.computePolicy(lineId, dcId);
+  }
+
+  /**
+   * Supervisor override of a scan compliance hard stop.
+   * Validates Inbound_Supervisor role and non-empty reason_code.
+   * Sets override_applied = true and writes OVERRIDE_SCAN_POLICY audit event.
+   */
+  async supervisorOverride(request: OverrideRequest): Promise<OverrideResult> {
+    // Req 6.1: validate role
+    if (!checkOverrideRole(request.user_roles)) {
+      return { success: false, error: 'INSUFFICIENT_ROLE' };
+    }
+
+    // Req 6.2: validate reason code
+    if (!checkReasonCode(request.reason_code)) {
+      return { success: false, error: 'REASON_CODE_REQUIRED' };
+    }
+
+    const client = await this.db.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Get current scan counts for the audit event
+      const lineResult = await client.query<{
+        completed_scans: number;
+        required_scans: number;
+      }>(
+        `SELECT completed_scans, required_scans FROM delivery_lines WHERE line_id = $1`,
+        [request.line_id]
+      );
+
+      if (lineResult.rows.length === 0) {
+        throw new Error('Delivery line not found');
+      }
+
+      const line = lineResult.rows[0]!;
+
+      // Req 6.5: set override_applied = true
+      await client.query(
+        `UPDATE delivery_lines SET override_applied = true WHERE line_id = $1`,
+        [request.line_id]
+      );
+
+      // Req 6.3 / 10.2: write OVERRIDE_SCAN_POLICY audit event
+      const auditResult = await client.query<{ event_id: string }>(
+        `INSERT INTO audit_events
+           (dc_id, event_type, user_id, device_id, reference_doc, new_state, reason_code)
+         VALUES ($1, 'OVERRIDE_SCAN_POLICY', $2, $3, $4, $5::jsonb, $6)
+         RETURNING event_id`,
+        [
+          request.dc_id,
+          request.user_id,
+          request.device_id,
+          request.line_id,
+          JSON.stringify({
+            delivery_line_id: request.line_id,
+            completed_scans: line.completed_scans,
+            required_scans: line.required_scans,
+            reason_code: request.reason_code,
+            supervisor_user_id: request.user_id,
+          }),
+          request.reason_code,
+        ]
+      );
+
+      const auditEventId = auditResult.rows[0]!.event_id;
+
+      await client.query('COMMIT');
+
+      return { success: true, audit_event_id: auditEventId };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Records physical_count (GunnyBag) or unit_count (Loose) on a delivery line.
+   */
+  async recordCount(request: RecordCountRequest): Promise<void> {
+    const column = request.count_type === 'physical_count' ? 'physical_count' : 'unit_count';
+    await this.db.query(
+      `UPDATE delivery_lines SET ${column} = $1 WHERE line_id = $2`,
+      [request.count_value, request.line_id]
+    );
+  }
+
+  /**
+   * Req 9.1, 9.2, 9.4: Closes a delivery by aggregating line-level scan_compliance_pct values.
+   * Calculates delivery_scan_compliance_pct as the arithmetic mean of all line-level values,
+   * rounded to the nearest integer, and persists it to deliveries.
+   * Publishes SCAN_COMPLIANCE_BELOW_TARGET SQS alert when aggregate < 100%.
+   */
+  async closeDelivery(
+    deliveryId: string,
+    dcId: string,
+    userId: string,
+  ): Promise<{ delivery_scan_compliance_pct: number }> {
+    // Req 9.2: Query all scan_compliance_pct values from delivery_lines for the delivery
+    const linesResult = await this.db.query<{ scan_compliance_pct: number | null }>(
+      `SELECT scan_compliance_pct FROM delivery_lines WHERE delivery_id = $1`,
+      [deliveryId],
+    );
+
+    const rows = linesResult.rows;
+
+    // Calculate arithmetic mean of all line-level values, rounded to nearest integer
+    let deliveryScanCompliancePct: number;
+    if (rows.length === 0) {
+      deliveryScanCompliancePct = 100;
+    } else {
+      const sum = rows.reduce((acc, row) => acc + (row.scan_compliance_pct ?? 100), 0);
+      deliveryScanCompliancePct = Math.round(sum / rows.length);
+    }
+
+    // Req 9.1: Persist to deliveries.delivery_scan_compliance_pct
+    await this.db.query(
+      `UPDATE deliveries SET delivery_scan_compliance_pct = $1, status = 'Closed' WHERE delivery_id = $2`,
+      [deliveryScanCompliancePct, deliveryId],
+    );
+
+    // Req 9.4: Publish SCAN_COMPLIANCE_BELOW_TARGET alert when aggregate < 100%
+    if (deliveryScanCompliancePct < 100) {
+      await this.sendAlert('SCAN_COMPLIANCE_BELOW_TARGET', {
+        delivery_id: deliveryId,
+        dc_id: dcId,
+        closed_by: userId,
+        delivery_scan_compliance_pct: deliveryScanCompliancePct,
+      });
+    }
+
+    return { delivery_scan_compliance_pct: deliveryScanCompliancePct };
   }
 
   private async sendAlert(alertType: string, payload: any): Promise<void> {

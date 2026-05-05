@@ -298,7 +298,7 @@ describe('ReceivingService', () => {
         batch_number: null,
         expiry_date: null,
         sku_id: 'sku-1',
-        category: 'Fresh',
+        category: 'Fresh_FV',
       };
 
       vi.mocked(mockClient.query)

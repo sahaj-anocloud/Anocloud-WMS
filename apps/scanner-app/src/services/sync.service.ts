@@ -1,8 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
+import apiClient from './api.client';
 
 const QUEUE_KEY = '@wms_sync_queue';
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
 
 export interface OfflineTransaction {
   id: string;
@@ -39,7 +38,7 @@ export class OfflineSyncService {
 
     try {
       // Replay in chronological order
-      const response = await axios.post(`${API_BASE_URL}/scanner/sync`, {
+      const response = await apiClient.post('/api/v1/scanner/offline-sync', {
         transactions: queue
       });
 

@@ -1,18 +1,52 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { Colors, Spacing, Typography } from '../theme';
 
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../types';
+import { AuthService } from '../services/auth.service';
+import { useAuth } from '../contexts/AuthContext';
 
 export const LoginScreen = () => {
   const [otp, setOtp] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+  const { login } = useAuth();
 
-  const handleLogin = () => {
-    console.log('Logging in with OTP:', otp);
-    navigation.navigate('GateEntry');
+  const handleLogin = async () => {
+    // Validate OTP
+    if (otp.length !== 6) {
+      setError('Please enter a 6-digit OTP');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      // Call backend auth endpoint
+      const response = await AuthService.login(otp);
+      
+      // Store token and user info via AuthContext
+      await login(
+        {
+          user_id: response.user_id,
+          roles: response.roles,
+          dc_id: response.dc_id,
+        },
+        response.token
+      );
+
+      // Navigate to main screen
+      navigation.navigate('GateEntry');
+    } catch (err: any) {
+      console.error('Login failed:', err);
+      setError(err.response?.data?.message || 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -36,10 +70,23 @@ export const LoginScreen = () => {
             placeholderTextColor={Colors.textSecondary}
             keyboardType="number-pad"
             maxLength={6}
+            editable={!loading}
           />
 
-          <TouchableOpacity style={styles.button} onPress={handleLogin}>
-            <Text style={styles.buttonText}>START SHIFT</Text>
+          {error ? (
+            <Text style={styles.errorText}>{error}</Text>
+          ) : null}
+
+          <TouchableOpacity 
+            style={[styles.button, loading && styles.buttonDisabled]} 
+            onPress={handleLogin}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color={Colors.text} />
+            ) : (
+              <Text style={styles.buttonText}>START SHIFT</Text>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -92,10 +139,19 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg,
     alignItems: 'center',
   },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
   buttonText: {
     ...Typography.body,
     fontWeight: '700',
     letterSpacing: 1.5,
+  },
+  errorText: {
+    ...Typography.caption,
+    color: '#ff4444',
+    marginTop: Spacing.sm,
+    textAlign: 'center',
   },
   footer: {
     position: 'absolute',

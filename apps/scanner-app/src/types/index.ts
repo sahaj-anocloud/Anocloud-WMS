@@ -8,6 +8,7 @@ export type RootStackParamList = {
   BatchCapture: { lineId: string; dcId: string };
   Quarantine: { lineId: string; dcId: string };
   LPNPrint: { lineId: string; dcId: string };
+  QCWizard: { lineId: string; dcId: string; deliveryId: string };
 };
 
 export interface User {

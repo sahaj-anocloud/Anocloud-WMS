@@ -29,14 +29,17 @@ import { gstRoutes } from './modules/gst/gst.routes.js';
 import { promoRoutes } from './modules/promo/promo.routes.js';
 import { grnRoutes } from './modules/grn/grn.routes.js';
 import authLoginRoutes from './modules/auth/auth.routes.js';
+import userRoutes from './modules/auth/user.routes.js';
 import vendorRoutes from './modules/vendors/vendor.routes.js';
 import skuRoutes from './modules/skus/sku.routes.js';
+import poRoutes from './modules/purchase-orders/po.routes.js';
 
 import { startQuarantineAlertJob } from './jobs/quarantine-alert.js';
 import { startSAPStockSyncJob } from './jobs/sap-stock-sync.js';
 import { startKPISnapshotJob } from './jobs/kpi-snapshot.js';
 import { startEscalationEngine } from './jobs/escalation-engine.js';
 import { startAuditArchiveJob } from './jobs/audit-archive.js';
+import { startNotificationWorker } from './jobs/notification-worker.js';
 
 import fs from 'fs';
 import path from 'path';
@@ -78,7 +81,22 @@ export async function buildApp() {
   const fastify = Fastify(fastifyOptions);
 
   // Core plugins
-  await fastify.register(cors);
+  await fastify.register(cors, {
+    origin: [
+      'http://localhost:8081', // Expo dev server
+      'http://127.0.0.1:8081',
+      'http://localhost:3001', // Vendor Portal
+      'http://127.0.0.1:3001',
+      'http://localhost:19006', // Expo web
+      /^http:\/\/192\.168\.\d+\.\d+:(8081|3000|3001)$/, // Local network Expo dev
+      /^http:\/\/10\.\d+\.\d+\.\d+:(8081|3000|3001)$/, // Local network Expo dev (alternative)
+      'https://staging-scanner.sumosave.com', // Staging
+      'https://scanner.sumosave.com', // Production
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-device-id'],
+  });
   await fastify.register(rateLimit, { max: 200, timeWindow: '1 minute' });
   await fastify.register(helmet);
 
@@ -93,6 +111,7 @@ export async function buildApp() {
   // Routes
   await fastify.register(healthRoutes);
   await fastify.register(authLoginRoutes); // POST /api/v1/auth/login
+  await fastify.register(userRoutes);      // User management CRUD
   await fastify.register(asnRoutes);
   await fastify.register(appointmentRoutes);
   await fastify.register(gateRoutes);
@@ -114,6 +133,7 @@ export async function buildApp() {
   await fastify.register(grnRoutes, { prefix: '/api/v1/grn' });
   await fastify.register(vendorRoutes);
   await fastify.register(skuRoutes);
+  await fastify.register(poRoutes);
 
   // Background Workers
   startQuarantineAlertJob(fastify.db, fastify.sqsClient);
@@ -121,6 +141,7 @@ export async function buildApp() {
   startKPISnapshotJob({ db: fastify.db, dbRead: fastify.dbRead });
   startEscalationEngine(fastify.db, fastify.sqsClient);
   startAuditArchiveJob(fastify.db);
+  startNotificationWorker(fastify.db);
 
   return fastify;
 }

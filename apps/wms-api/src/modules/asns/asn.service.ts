@@ -258,6 +258,26 @@ export class ASNService {
   }
 
   /**
+   * Retrieves a list of ASNs, optionally filtered by vendor_id and status.
+   */
+  async getASNs(vendorId?: string, status?: string): Promise<ASNRow[]> {
+    let query = `SELECT * FROM asns WHERE 1=1`;
+    const params: any[] = [];
+    if (vendorId) {
+      params.push(vendorId);
+      query += ` AND vendor_id = $${params.length}`;
+    }
+    if (status) {
+      params.push(status);
+      query += ` AND status = $${params.length}`;
+    }
+    query += ` ORDER BY submitted_at DESC`;
+
+    const result = await this.dbRead.query<ASNRow>(query, params);
+    return result.rows;
+  }
+
+  /**
    * Checks if an ASN exists for a given PO.
    * Used to enforce: no delivery appointment may be booked without a corresponding ASN on file.
    */

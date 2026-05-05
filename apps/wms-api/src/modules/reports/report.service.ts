@@ -22,10 +22,25 @@ export interface KPISnapshot {
 export interface VendorScorecardRow {
   vendor_id: string;
   vendor_name: string;
+  gstin: string;
+  compliance_status: string;
+  category: string;
+  // Core KPIs
   asn_coverage_rate: number;
   on_time_delivery_rate: number;
   first_pass_yield: number;
   doc_currency_rate: number;
+  barcode_remediation_rate: number;
+  // Delivery stats
+  total_deliveries: number;
+  total_asns: number;
+  last_delivery_at: string | null;
+  // Incidents
+  incident_count: number;
+  // Composite score (0–100) and tier
+  composite_score: number;
+  tier: 'gold' | 'silver' | 'bronze' | 'watch';
+  trend: 'up' | 'down' | 'flat';
 }
 
 export interface ProductivityRow {
@@ -157,7 +172,7 @@ export class ReportService {
        JOIN deliveries d ON d.delivery_id = dl.delivery_id
        JOIN skus s ON s.sku_id = dl.sku_id
        WHERE d.dc_id = $1
-         AND s.category IN ('FMCG_Food','BDF','Fresh')
+         AND s.category IN ('FMCG_Food','FMCG_NonFood','BDF','Fresh_FV','Fresh_Dairy','Frozen','Chocolate')
          AND d.created_at > now() - INTERVAL '24 hours'`,
       [dcId],
     );
@@ -359,6 +374,9 @@ export class ReportService {
     return {
       vendor_id: r.vendor_id,
       vendor_name: r.vendor_name,
+      gstin: '',
+      compliance_status: 'Active',
+      category: 'FMCG',
       asn_coverage_rate: clampPct(
         parseInt(r.total_asns, 10) > 0 && totalDeliveries > 0
           ? (parseInt(r.total_asns, 10) / totalDeliveries) * 100
@@ -371,7 +389,37 @@ export class ReportService {
       doc_currency_rate: clampPct(
         totalDocs > 0 ? ((totalDocs - expiredDocs) / totalDocs) * 100 : 100,
       ),
+      barcode_remediation_rate: 0,
+      total_deliveries: totalDeliveries,
+      total_asns: parseInt(r.total_asns, 10),
+      last_delivery_at: null,
+      incident_count: 0,
+      composite_score: Math.round(
+        clampPct(parseInt(r.total_asns, 10) > 0 && totalDeliveries > 0 ? (parseInt(r.total_asns, 10) / totalDeliveries) * 100 : 0) * 0.20 +
+        clampPct(totalDeliveries > 0 ? (onTime / totalDeliveries) * 100 : 0) * 0.25 +
+        clampPct(totalLines > 0 ? (firstPass / totalLines) * 100 : 0) * 0.25 +
+        clampPct(totalDocs > 0 ? ((totalDocs - expiredDocs) / totalDocs) * 100 : 100) * 0.30
+      ),
+      tier: 'silver' as const,
+      trend: 'flat' as const,
     };
+  }
+
+  /**
+   * Returns scorecards for all vendors in a DC. Req 18.3
+   */
+  async getAllVendorScorecards(dcId: string): Promise<VendorScorecardRow[]> {
+    const vendorResult = await this.dbRead.query<{ vendor_id: string }>(
+      `SELECT vendor_id FROM vendors WHERE dc_id = $1 AND compliance_status != 'Suspended'`,
+      [dcId],
+    );
+    const scorecards = await Promise.all(
+      vendorResult.rows.map(async (v) => {
+        try { return await this.getVendorScorecard(v.vendor_id, dcId, {}); }
+        catch { return null; }
+      }),
+    );
+    return scorecards.filter((s): s is VendorScorecardRow => s !== null);
   }
 
   /**

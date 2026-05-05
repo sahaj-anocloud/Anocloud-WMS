@@ -12,6 +12,16 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow SumoSave Scanner to access your camera to scan barcodes.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ]
+    ],
     "ios": {
       "supportsTablet": true
     },
